@@ -1,37 +1,63 @@
 #include <drawNcurses.h>
 
-void drawSpectrum(double *soundArray, int x_size, int y_size, int y_startingLine)
+void drawSpectrum(double *soundArray, int x_size, int y_size, int y_startingLine, bool uprigth)
 {
     static wchar_t *character[] = {L" ", L"\u2581" , L"\u2582" , L"\u2583" , L"\u2584" , L"\u2585" , L"\u2586" , L"\u2587" , L"\u2588"};
-    for (int x = 0; x < x_size; x++)
+    if (uprigth)
     {
-        int soundInt = 0;
-        if (soundArray[x] < -1000000000) soundInt = -1000000000;
-        else soundInt = soundArray[x] * ((y_size + 1) * 8);
-        // mvaddch(10, x, 'X');
-        // int soundInt = 123;
-        for (int y = y_startingLine + y_size; y >= y_startingLine; y--)
+        color_set(1, NULL);
+        // attroff(A_REVERSE);
+        for (int x = 0; x < x_size; x++)
         {
-            // mvaddch(y, 20, 'X');
-            int charIndex = soundInt;
-            if (soundInt <= 0)
+            int soundInt = 0;
+            if (soundArray[x] < -1000000000) soundInt = -1000000000;
+            else soundInt = soundArray[x] * ((y_size) * 8) + 8;
+            for (int y = y_startingLine + y_size; y >= y_startingLine; y--)
             {
-                charIndex = 0;
-                // mvaddch(y, x, ' ');
-            }
-            else if (soundInt >= 8)
-            {
-                charIndex = 8;
-                // mvaddch(y, x, ' ' | A_REVERSE);
-            }
-            // else
-            {
+                int charIndex = soundInt;
+                if (soundInt <= 0)
+                {
+                    charIndex = 0;
+                }
+                else if (soundInt >= 8)
+                {
+                    charIndex = 8;
+                    // mvaddch(y, x, ' ' | A_REVERSE);
+                }
                 mvaddwstr(y, x, character[charIndex]);
-                // mvprintw(x,y, character[charIndex]);
+                soundInt -= 8;
             }
-            soundInt -=8;
         }
     }
+    else
+    {
+        // attron(A_REVERSE);
+        color_set(2, NULL);
+        for (int x = 0; x < x_size; x++)
+        {
+            int soundInt = 0;
+            if (soundArray[x] < -1000000000) soundInt = -1000000000;
+            else soundInt = soundArray[x] * ((y_size) * 8);
+            for (int y = y_startingLine; y < y_startingLine + y_size; y++)
+            {
+                int charIndex = soundInt;
+                if (soundInt <= 0)
+                {
+                    charIndex = 8;
+                }
+                else if (soundInt >= 8)
+                {
+                    charIndex = 0;
+                }
+                else
+                {
+                    charIndex = 8 - soundInt;
+                }
+                mvaddwstr(y, x, character[charIndex]);
+                soundInt -= 8;
+            }
+        }
+    }    
 }
 
 

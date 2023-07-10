@@ -192,7 +192,14 @@ void* threadFunction(void* arg)
 	            logBands(bands_out, log10_bands, windowColums, startingPoint, ratio);
 	            normalizeLogBands(log10_bands, windowColums, 5.0);
 	            color_set(1, NULL);
-	            drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / channels, max(w.ws_row, 3) / channels * channel);
+	            if (channels == 2 && channel == 1)
+	            {
+	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / channels, max(w.ws_row, 3) / channels * channel, false);
+	            }
+	            else
+	            {
+	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / channels, max(w.ws_row, 3) / channels * channel, true);
+	            }
             }
                         
             // mvprintw(0, 0, "%d, %d", allBuffer.writeIndex, readSamples);

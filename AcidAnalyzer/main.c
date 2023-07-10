@@ -188,8 +188,11 @@ int main(int argc, char *argv[])
         // init_color(COLOR_WHITE, 900, 0, 0);
         // init_color(COLOR_BLACK, 0, 0, 0);
         // init_pair(1, COLOR_WHITE, COLOR_BLACK);
-        init_pair(1, 1 + rand() % 15, COLOR_BLACK);
-        init_pair(1, 15, COLOR_BLACK);
+        // init_pair(1, 1 + rand() % 15, COLOR_BLACK);
+        init_color(COLOR_BLUE, 0, 0, 1000);
+        init_color(COLOR_CYAN, 300, 300, 1000);
+        init_pair(1, COLOR_BLUE, COLOR_BLACK);
+        init_pair(2, COLOR_BLACK, COLOR_CYAN);
         color_set(1, NULL);
         // attron(COLOR_PAIR(1));
 
