@@ -12,14 +12,17 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
 
-add_executable(${PROJECT_NAME} main.c)
-add_executable(test test.c)
+add_executable(${PROJECT_NAME} main.c kaiser.c ringBuffer.c drawNcurses.c properFFTalgorithm.c defines.h)
+add_executable(test test.c kaiser.c ringBuffer.c drawNcurses.c properFFTalgorithm.c defines.h)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Enable multithreading in FFTW
 # add_definitions(-DFFTW_ENABLE_THREADS)
 
-target_link_libraries(${PROJECT_NAME} PkgConfig::PIPEWIRE m fftw3 fftw3_threads ncursesw pthread blas)
-target_link_libraries(test PkgConfig::PIPEWIRE m fftw3 fftw3_threads ncursesw pthread blas)
+target_link_libraries(${PROJECT_NAME} PkgConfig::PIPEWIRE m fftw3 fftw3_threads ncursesw pthread)
+target_link_libraries(test PkgConfig::PIPEWIRE m fftw3 fftw3_threads ncursesw pthread)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
