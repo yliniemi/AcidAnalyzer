@@ -174,6 +174,7 @@ int main(int argc, char *argv[])
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
         double colorR, colorG, colorB;
+        printf("\033]0;Acid Analyzer\007");
         setlocale(LC_ALL, "");
         initscr();
         curs_set(0);
