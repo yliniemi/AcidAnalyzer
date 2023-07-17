@@ -1,23 +1,27 @@
+/*
+    Proper FFT Algorithm
+    Copyright (C) 2023 Antti Yliniemi
+    
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 #include <properFFTalgorithm.h>
 
+
+
 double substract_universal[6]  =
-{ 4.432, 4.668, 4.754, 4.783, 4.789, 4.790 };
-
-struct RingBuffer allBuffer;
-int sampleRate = 1;
-int channels = 1;
-
-/*
-void setChannels(int newChannels)
-{
-	channels = newChannels;
-}
-
-void setSampleRate(int newSampleRate)
-{
-	sampleRate = newSampleRate;
-}
-*/
+{ 4.432, 4.668, 4.754, 4.783, 4.789, 4.790 };   // this is here until I make changing KAISER_BETA dynamic. These are the values for KAISER_BETA = 5.0
 
 void multiplyArrays(const double* array1, const double* array2, double* result, int size)
 {
@@ -152,7 +156,7 @@ void* threadFunction(void* arg)
 
     while(true)
     {
-        if (allBuffer.buffers != NULL)
+        if (global.allBuffer.buffers != NULL)
         {
             struct winsize w;
             ioctl(0, TIOCGWINSZ, &w);
@@ -160,12 +164,12 @@ void* threadFunction(void* arg)
             static double ratio = 0;
             static int startingPoint = 3;
             static int oldSampleRate = 1;
-            if (w.ws_col != windowColums || sampleRate != oldSampleRate)
+            if (w.ws_col != windowColums || global.sampleRate != oldSampleRate)
             {
                 windowColums = w.ws_col;
-                oldSampleRate = sampleRate;
-                startingPoint = max(20 * NUMBER_OF_FFT_SAMPLES / sampleRate + 1, 3);
-                int n_bins = min(NUMBER_OF_FFT_SAMPLES / 2, NUMBER_OF_FFT_SAMPLES / 2 * 20000 / (sampleRate / 2));
+                oldSampleRate = global.sampleRate;
+                startingPoint = max(20 * NUMBER_OF_FFT_SAMPLES / global.sampleRate + 1, 3);
+                int n_bins = min(NUMBER_OF_FFT_SAMPLES / 2, NUMBER_OF_FFT_SAMPLES / 2 * 20000 / (global.sampleRate / 2));
                 ratio = findRatio(60, 0, 1, 0, startingPoint, n_bins, windowColums);
             }
             struct timespec ts;
@@ -174,15 +178,15 @@ void* threadFunction(void* arg)
             uint64_t new_ns = ts.tv_sec * 1000000000 + ts.tv_nsec;
             uint64_t delta_ns = new_ns - old_ns;
 
-            uint64_t newSamples = min(NUMBER_OF_FFT_SAMPLES, sampleRate * delta_ns / 996000000 + 1);
-            int readSamples = increaseBufferReadIndex(&allBuffer, newSamples);
+            uint64_t newSamples = min(NUMBER_OF_FFT_SAMPLES, global.sampleRate * delta_ns / 996000000 + 1);
+            int readSamples = increaseBufferReadIndex(&global.allBuffer, newSamples);
             if (readSamples <= 0) goto skip;
             
             
             static int frameNumber = 0;
-            for (int channel = 0; channel < channels; channel++)
+            for (int channel = 0; channel < global.channels; channel++)
             {
-                readChunkFromBuffer(&allBuffer, (uint8_t*)audio, channel);
+                readChunkFromBuffer(&global.allBuffer, (uint8_t*)audio, channel);
 	            multiplyArrays(audio, windowingArray, real_in, NUMBER_OF_FFT_SAMPLES);  // windowing
 	            fftw_execute(thePlan);
 	            multiplyArrays((double*)complex_out, (double*)complex_out, (double*)complexPower, NUMBER_OF_FFT_SAMPLES);  // these two steps turn co complex numbers
@@ -192,13 +196,13 @@ void* threadFunction(void* arg)
 	            logBands(bands_out, log10_bands, windowColums, startingPoint, ratio);
 	            normalizeLogBands(log10_bands, windowColums, 5.0);
 	            color_set(1, NULL);
-	            if (channels == 2 && channel == 1)
+	            if (global.channels == 2 && channel == 1)
 	            {
-	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / channels, max(w.ws_row, 3) / channels * channel, false);
+	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, false);
 	            }
 	            else
 	            {
-	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / channels, max(w.ws_row, 3) / channels * channel, true);
+	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, true);
 	            }
             }
                         
@@ -207,14 +211,16 @@ void* threadFunction(void* arg)
             refresh();
             old_ns = new_ns;
         }
-        skip:
+        skip:;
+        static double fps = FPS;
+        uint64_t interval = 1000000000 / fps;       // in nanoseconds
         struct timespec ts;
         clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
         static uint64_t old_ns = 0;
         uint64_t new_ns = ts.tv_sec * 1000000000 + ts.tv_nsec;
         uint64_t delta_ns = new_ns - old_ns;
         struct timespec rem;
-        uint64_t sleepThisLong = min(max((int)8333333 - (int)delta_ns, 0), 100000000);
+        uint64_t sleepThisLong = max(interval - (int)delta_ns, 0);
         struct timespec req = {sleepThisLong / 1000000000, sleepThisLong % 1000000000};
         nanosleep(&req, &rem);
         clock_gettime(CLOCK_MONOTONIC_RAW, &ts);

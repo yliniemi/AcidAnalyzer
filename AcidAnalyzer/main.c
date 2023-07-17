@@ -1,3 +1,21 @@
+/*
+    Acid Analyzer
+    Copyright (C) 2023 Antti Yliniemi
+    
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <errno.h>
@@ -18,13 +36,9 @@
 #include <ringBuffer.h>
 #include <properFFTalgorithm.h>
 
-double *real_in;
-fftw_complex *complex_out;
-fftw_plan p;
+struct Global global;
 
 pthread_t readStuff;
-
-int capturedSamples = 0;
 
 void deinterleaveArrays(const float* interleavedData, float** outputArrays, int numArrays, int length) {
     for (int i = 0; i < numArrays; i++) {
@@ -51,60 +65,58 @@ struct data {
  *
  *  pw_stream_queue_buffer(stream, b);
  */
-static void on_process(void *userdata)
+static void on_process(void *userData)
 {
-        struct data *data = userdata;
-        struct pw_buffer *b;
-        struct spa_buffer *buf;
-        float *samples, min, max;
-        uint32_t c, n, n_samples, peak;
+        struct data *data = userData;
+        struct pw_buffer *pipeWireBuffer;
+        struct spa_buffer *spaBuffer;
+        uint32_t n_samples;
         static int n_channels = 0;
  
-        if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL) {
+        if ((pipeWireBuffer = pw_stream_dequeue_buffer(data->stream)) == NULL) {
                 pw_log_warn("out of buffers: %m");
                 return;
         }
  
-        buf = b->buffer;
-        if ((samples = buf->datas[0].data) == NULL)
+        spaBuffer = pipeWireBuffer->buffer;
+        if (spaBuffer->datas[0].data == NULL)
                 return;
         
         n_channels = data->format.info.raw.channels;
 
-        n_samples = buf->datas[0].chunk->size / sizeof(float) / n_channels;
-        if (getBufferWriteSpace(&allBuffer) >= n_samples)
+        n_samples = spaBuffer->datas[0].chunk->size / sizeof(float) / n_channels;
+        if (getBufferWriteSpace(&global.allBuffer) >= n_samples)
         {
             struct winsize w;
             ioctl(0, TIOCGWINSZ, &w);
 
             double *audio = calloc(n_samples, sizeof(double));
-            for (int c = 0; c < n_channels; c++)
+            for (int channel = 0; channel < n_channels; channel++)
             {
                 for (int i = 0; i < n_samples; i++)
                 {
-                    audio[i] = ((float*)buf->datas[0].data)[(i * n_channels + c)];
+                    audio[i] = ((float*)spaBuffer->datas[0].data)[(i * n_channels + channel)];
                 }
                 // mvprintw(w.ws_row - 2, 0, "started writing");
                 // refresh();
-                writeBuffer(&allBuffer, (uint8_t*)audio, c, n_samples);
+                writeBuffer(&global.allBuffer, (uint8_t*)audio, channel, n_samples);
                 // mvprintw(w.ws_row - 2, 0, "writing done   ");
                 // refresh();
             }
-            increaseBufferWriteIndex(&allBuffer, n_samples);
+            increaseBufferWriteIndex(&global.allBuffer, n_samples);
             free(audio);
         }
-        // writeBuffer(&allBuffer, (uint8_t*)buf->datas[0].data, 0, n_samples);
+        // writeBuffer(&global.allBuffer, (uint8_t*)buf->datas[0].data, 0, n_samples);
 
 
  
         /* move cursor up */
         static int frame = 0;
-        capturedSamples = n_samples;
         
         data->move = true;
         // fflush(stdout);
  
-        pw_stream_queue_buffer(data->stream, b);
+        pw_stream_queue_buffer(data->stream, pipeWireBuffer);
 }
  
 /* Be notified when the stream param changes. We're only looking at the
@@ -131,19 +143,17 @@ void on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *par
         spa_format_audio_raw_parse(param, &data->format.info.raw);
 
         
-        if (sampleRate != data->format.info.raw.rate)
+        if (global.sampleRate != data->format.info.raw.rate)
         {
-            sampleRate = data->format.info.raw.rate;
+            global.sampleRate = data->format.info.raw.rate;
             // setNewSampleRate = sampleRate;
         }
-        if (channels != data->format.info.raw.channels)
+        if (global.channels != data->format.info.raw.channels)
         {
-            channels = data->format.info.raw.channels;
-            // setNewChannels(channels);
-            // fprintf(stdout, "channels changed to %d\n", channels);
-            initializeBufferWithChunksSize(&allBuffer, channels, 65536, sizeof(double), NUMBER_OF_FFT_SAMPLES);
-            allBuffer.partialRead = true;
-            printw("initialized the buffer with %d size", allBuffer.size);
+            global.channels = data->format.info.raw.channels;
+            initializeBufferWithChunksSize(&global.allBuffer, global.channels, 65536, sizeof(double), NUMBER_OF_FFT_SAMPLES);
+            global.allBuffer.partialRead = true;
+            printw("initialized the buffer with %d size", global.allBuffer.size);
             refresh;
         }
         
@@ -173,6 +183,9 @@ int main(int argc, char *argv[])
         struct pw_properties *props;
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
+        global.sampleRate = 1;
+        global.channels = 1;
+        
         double colorR, colorG, colorB;
         printf("\033]0;Acid Analyzer\007");
         setlocale(LC_ALL, "");
@@ -190,8 +203,8 @@ int main(int argc, char *argv[])
         // init_color(COLOR_BLACK, 0, 0, 0);
         // init_pair(1, COLOR_WHITE, COLOR_BLACK);
         // init_pair(1, 1 + rand() % 15, COLOR_BLACK);
-        init_color(COLOR_BLUE, 0, 0, 1000);
-        init_color(COLOR_CYAN, 300, 300, 1000);
+        init_color(COLOR_BLUE, COLOR0);
+        init_color(COLOR_CYAN, COLOR1);
         init_pair(1, COLOR_BLUE, COLOR_BLACK);
         init_pair(2, COLOR_BLACK, COLOR_CYAN);
         color_set(1, NULL);
