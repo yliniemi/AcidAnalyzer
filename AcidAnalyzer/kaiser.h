@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include <math.h>
 
 #ifndef PI
@@ -7,4 +8,4 @@
 #endif
 
 double besselI0(double x);
-void generateKaiserWindow(int N, double beta, double *window);
+void generateKaiserWindow(int64_t N, double beta, double *window);

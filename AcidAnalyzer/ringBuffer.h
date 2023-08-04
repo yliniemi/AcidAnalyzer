@@ -8,40 +8,40 @@
 
 struct RingBuffer
 {
-    int size;
-    int elementSize;
-    int chunkSize;
-    int numberOfBuffers;
-    int readIndex;
-    int writeIndex;
+    int64_t size;
+    int64_t elementSize;
+    int64_t chunkSize;
+    int64_t numberOfBuffers;
+    int64_t readIndex;
+    int64_t writeIndex;
     uint8_t **buffers;
     bool partialWrite;
     bool partialRead;
-    int tooMuch;
-    int tooLittle;
+    int64_t tooMuch;
+    int64_t tooLittle;
 };
 
-void initializeBufferWithChunksSize(struct RingBuffer *rb, int numberOfBuffers, int size, int elementSize, int chunkSize);
+void initializeBufferWithChunksSize(struct RingBuffer *rb, int64_t numberOfBuffers, int64_t size, int64_t elementSize, int64_t chunkSize);
 
-void initializeBuffer(struct RingBuffer *rb, int numberOfBuffers, int size, int elementSize);
+void initializeBuffer(struct RingBuffer *rb, int64_t numberOfBuffers, int64_t size, int64_t elementSize);
 
 bool isBufferEmpty(struct RingBuffer* rb);
 
 bool isBufferFull(struct RingBuffer* rb);
 
-int getBufferWriteSpace(struct RingBuffer* rb);
+int64_t getBufferWriteSpace(struct RingBuffer* rb);
 
-int increaseBufferWriteIndex(struct RingBuffer* rb, int count);
+int64_t increaseBufferWriteIndex(struct RingBuffer* rb, int64_t count);
 
-int writeBuffer(struct RingBuffer* rb, uint8_t *data, int bufferNumber, int count);
+int64_t writeBuffer(struct RingBuffer* rb, uint8_t *data, int64_t bufferNumber, int64_t count);
 
-int getBufferReadSpace(struct RingBuffer* rb);
+int64_t getBufferReadSpace(struct RingBuffer* rb);
 
-int increaseBufferReadIndex(struct RingBuffer *rb, int count);
+int64_t increaseBufferReadIndex(struct RingBuffer *rb, int64_t count);
 
-int readBuffer(struct RingBuffer *rb, uint8_t *destination, int bufferNumber, int count);
+int64_t readBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t bufferNumber, int64_t count);
 
-int readChunkFromBuffer(struct RingBuffer *rb, uint8_t *destination, int bufferNumber);
+int64_t readChunkFromBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t bufferNumber);
 
 void freeBuffer(struct RingBuffer* rb);
 

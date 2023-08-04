@@ -18,6 +18,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <math.h>
 #include <signal.h>
@@ -40,9 +41,9 @@ struct Global global;
 
 pthread_t readStuff;
 
-void deinterleaveArrays(const float* interleavedData, float** outputArrays, int numArrays, int length) {
-    for (int i = 0; i < numArrays; i++) {
-        for (int j = 0; j < length; j++) {
+void deinterleaveArrays(const float* interleavedData, float** outputArrays, int64_t numArrays, int64_t length) {
+    for (int64_t i = 0; i < numArrays; i++) {
+        for (int64_t j = 0; j < length; j++) {
             outputArrays[i][j] = interleavedData[j * numArrays + i];
         }
     }
@@ -71,7 +72,7 @@ static void on_process(void *userData)
         struct pw_buffer *pipeWireBuffer;
         struct spa_buffer *spaBuffer;
         uint32_t n_samples;
-        static int n_channels = 0;
+        static int64_t n_channels = 0;
  
         if ((pipeWireBuffer = pw_stream_dequeue_buffer(data->stream)) == NULL) {
                 pw_log_warn("out of buffers: %m");
@@ -91,9 +92,9 @@ static void on_process(void *userData)
             ioctl(0, TIOCGWINSZ, &w);
 
             double *audio = calloc(n_samples, sizeof(double));
-            for (int channel = 0; channel < n_channels; channel++)
+            for (int64_t channel = 0; channel < n_channels; channel++)
             {
-                for (int i = 0; i < n_samples; i++)
+                for (int64_t i = 0; i < n_samples; i++)
                 {
                     audio[i] = ((float*)spaBuffer->datas[0].data)[(i * n_channels + channel)];
                 }
@@ -111,7 +112,7 @@ static void on_process(void *userData)
 
  
         /* move cursor up */
-        static int frame = 0;
+        static int64_t frame = 0;
         
         data->move = true;
         // fflush(stdout);
@@ -151,7 +152,7 @@ void on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *par
         if (global.channels != data->format.info.raw.channels)
         {
             global.channels = data->format.info.raw.channels;
-            initializeBufferWithChunksSize(&global.allBuffer, global.channels, 65536, sizeof(double), NUMBER_OF_FFT_SAMPLES);
+            initializeBufferWithChunksSize(&global.allBuffer, global.channels, 65536, sizeof(double), global.FFTsize);
             global.allBuffer.partialRead = true;
             printw("initialized the buffer with %d size", global.allBuffer.size);
             refresh;
@@ -174,120 +175,171 @@ static void do_quit(void *userdata, int signal_number)
         pw_main_loop_quit(data->loop);
 }
 
-#ifndef THIS_IS_A_TEST
-int main(int argc, char *argv[])
+int64_t replaceChar(char *str, char orig, char rep) {
+    char *ix = str;
+    int64_t n = 0;
+    while((ix = strchr(ix, orig)) != NULL) {
+        *ix++ = rep;
+        n++;
+    }
+    return n;
+}
+
+void parseArguments(int64_t argc, char *argv[])
 {
-        struct data data = { 0, };
-        const struct spa_pod *params[1];
-        uint8_t buffer[1024];
-        struct pw_properties *props;
-        struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+    for (int64_t i = 0; i < argc - 1; i++)
+    {
+        if (strcmp(argv[i], "--fps") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.fps = strtod(argv[i + 1], NULL);
+            printw(", fps = %f", global.fps);
+        }
+        if (strcmp(argv[i], "--FFTsize") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.FFTsize = strtol(argv[i + 1], NULL, 10);
+            printw(", FFTsize = %d", global.FFTsize);
+        }
+        if (strcmp(argv[i], "--dynamicRange") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.dynamicRange = strtod(argv[i + 1], NULL) / 10.0;  // conversion from Bel to deciBel
+            printw(", dynamicRange = %f", global.dynamicRange);
+        }
+        if (strcmp(argv[i], "--kaiserBeta") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.kaiserBeta = strtod(argv[i + 1], NULL);
+            printw(", kaiserBeta = %f", global.kaiserBeta);
+        }
+    }
+}
 
-        global.sampleRate = 1;
-        global.channels = 1;
-        
-        double colorR, colorG, colorB;
-        printf("\033]0;Acid Analyzer\007");
-        setlocale(LC_ALL, "");
-        initscr();
-        curs_set(0);
-        start_color();
-        srand(time(NULL));
-        // HSLtoRGB((double)rand() / RAND_MAX, 1.0, 0.5, &colorR, &colorG, &colorB);
-        // mvprintw(1, 0, "%lf, %lf, %lf", colorR, colorG, colorB);
-        printw("program started \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588");
-        refresh;
-        refresh();
-        // nanosleep(&(struct timespec){.tv_sec = 10}, NULL);
-        // init_color(COLOR_WHITE, 900, 0, 0);
-        // init_color(COLOR_BLACK, 0, 0, 0);
-        // init_pair(1, COLOR_WHITE, COLOR_BLACK);
-        // init_pair(1, 1 + rand() % 15, COLOR_BLACK);
-        init_color(COLOR_BLUE, COLOR0);
-        init_color(COLOR_CYAN, COLOR1);
-        init_pair(1, COLOR_BLUE, COLOR_BLACK);
-        init_pair(2, COLOR_BLACK, COLOR_CYAN);
-        color_set(1, NULL);
-        // attron(COLOR_PAIR(1));
+#ifndef THIS_IS_A_TEST
+int64_t main(int argc, char *argv[])
+{
+    struct data data = { 0, };
+    const struct spa_pod *params[1];
+    uint8_t buffer[1024];
+    struct pw_properties *props;
+    struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-        // fprintf(stdout, "sizeof(fftw_complex) = %d\n", sizeof(fftw_complex));
- 
-        /* and wait while we let things run */
-        pthread_create(&readStuff, NULL, threadFunction, NULL);
-        sleep(1);
-        
-        pw_init(&argc, &argv);
- 
-        /* make a main loop. If you already have another main loop, you can add
-         * the fd of this pipewire mainloop to it. */
-        data.loop = pw_main_loop_new(NULL);
- 
-        pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGINT, do_quit, &data);
-        pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
- 
-        /* Create a simple stream, the simple stream manages the core and remote
-         * objects for you if you don't need to deal with them.
-         *
-         * If you plan to autoconnect your stream, you need to provide at least
-         * media, category and role properties.
-         *
-         * Pass your events and a user_data pointer as the last arguments. This
-         * will inform you about the stream state. The most important event
-         * you need to listen to is the process event where you need to produce
-         * the data.
-         */
-        
-        props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",
-                        PW_KEY_MEDIA_CATEGORY, "Capture",
-                        PW_KEY_MEDIA_ROLE, "Music",
-                        NULL);
-        if (argc > 1)
-                /* Set stream target if given on command line */
-                pw_properties_set(props, PW_KEY_TARGET_OBJECT, argv[1]);
- 
-        /* uncomment if you want to capture from the sink monitor ports */
-        pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
- 
-        data.stream = pw_stream_new_simple(
-                        pw_main_loop_get_loop(data.loop),
-                        "audio-capture",
-                        props,
-                        &stream_events,
-                        &data);
- 
-        /* Make one parameter with the supported formats. The SPA_PARAM_EnumFormat
-         * id means that this is a format enumeration (of 1 value).
-         * We leave the channels and rate empty to accept the native graph
-         * rate and channels. */
-        params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-                        &SPA_AUDIO_INFO_RAW_INIT(
-                                .format = SPA_AUDIO_FORMAT_F32));
- 
-        /* Now connect this stream. We ask that our process function is
-         * called in a realtime thread. */
-        /*
-        pw_stream_connect(data.stream,
-                          PW_DIRECTION_INPUT,
-                          PW_ID_ANY,
-                          PW_STREAM_FLAG_AUTOCONNECT |
-                          PW_STREAM_FLAG_MAP_BUFFERS |
-                          PW_STREAM_FLAG_RT_PROCESS,
-                          params, 1);
-        */
-        pw_stream_connect(data.stream,
-                          PW_DIRECTION_INPUT,
-                          PW_ID_ANY,
-                          PW_STREAM_FLAG_AUTOCONNECT |
-                          PW_STREAM_FLAG_MAP_BUFFERS |
-                          PW_STREAM_FLAG_RT_PROCESS,
-                          params, 1);
-        
-        pw_main_loop_run(data.loop);
- 
-        pw_stream_destroy(data.stream);
-        pw_main_loop_destroy(data.loop);
-        pw_deinit();
- 
-        return 0;
+    global.sampleRate = 1;
+    global.channels = 1;
+    global.fps = FPS;
+    global.FFTsize = global.FFTsize;
+    global.threads = sysconf(_SC_NPROCESSORS_ONLN);
+    global.dynamicRange = DYNAMIC_RANGE;
+    global.kaiserBeta = KAISER_BETA;
+            
+    double colorR, colorG, colorB;
+    printf("\033]0;Acid Analyzer\007");
+    setlocale(LC_ALL, "");
+    setlocale(LC_NUMERIC, "en_GB.UTF-8");
+    initscr();
+    curs_set(0);
+    start_color();
+    srand(time(NULL));
+    // HSLtoRGB((double)rand() / RAND_MAX, 1.0, 0.5, &colorR, &colorG, &colorB);
+    // mvprintw(1, 0, "%lf, %lf, %lf", colorR, colorG, colorB);
+    printw("program started \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588\n");
+    
+    parseArguments(argc, argv);
+    
+    refresh;
+    refresh();
+    // nanosleep(&(struct timespec){.tv_sec = 10}, NULL);
+    // init_color(COLOR_WHITE, 900, 0, 0);
+    // init_color(COLOR_BLACK, 0, 0, 0);
+    // init_pair(1, COLOR_WHITE, COLOR_BLACK);
+    // init_pair(1, 1 + rand() % 15, COLOR_BLACK);
+    
+    init_color(COLOR_BLUE, COLOR0);
+    init_color(COLOR_CYAN, COLOR1);
+    
+    init_pair(1, COLOR_BLUE, COLOR_BLACK);
+    init_pair(2, COLOR_BLACK, COLOR_CYAN);
+    init_pair(3, COLOR_WHITE, COLOR_BLACK);
+    color_set(3, NULL);
+    // attron(COLOR_PAIR(1));
+    
+    // fprintf(stdout, "sizeof(fftw_complex) = %d\n", sizeof(fftw_complex));
+
+    /* and wait while we let things run */
+    pthread_create(&readStuff, NULL, threadFunction, NULL);
+    sleep(1);
+
+    pw_init(&argc, &argv);
+
+    /* make a main loop. If you already have another main loop, you can add
+     * the fd of this pipewire mainloop to it. */
+    data.loop = pw_main_loop_new(NULL);
+
+    pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGINT, do_quit, &data);
+    pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
+
+    /* Create a simple stream, the simple stream manages the core and remote
+     * objects for you if you don't need to deal with them.
+     *
+     * If you plan to autoconnect your stream, you need to provide at least
+     * media, category and role properties.
+     *
+     * Pass your events and a user_data pointer as the last arguments. This
+     * will inform you about the stream state. The most important event
+     * you need to listen to is the process event where you need to produce
+     * the data.
+     */
+
+    props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",
+                    PW_KEY_MEDIA_CATEGORY, "Capture",
+                    PW_KEY_MEDIA_ROLE, "Music",
+                    NULL);
+    if (argc > 1)
+            /* Set stream target if given on command line */
+            pw_properties_set(props, PW_KEY_TARGET_OBJECT, argv[1]);
+    /* uncomment if you want to capture from the sink monitor ports */
+    pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+
+    data.stream = pw_stream_new_simple(
+                    pw_main_loop_get_loop(data.loop),
+                    "audio-capture",
+                    props,
+                    &stream_events,
+                    &data);
+
+    /* Make one parameter with the supported formats. The SPA_PARAM_EnumFormat
+     * id means that this is a format enumeration (of 1 value).
+     * We leave the channels and rate empty to accept the native graph
+     * rate and channels. */
+    params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+                    &SPA_AUDIO_INFO_RAW_INIT(
+                       .format = SPA_AUDIO_FORMAT_F32));
+    
+    /* Now connect this stream. We ask that our process function is
+     * called in a realtime thread. */
+    /*
+    pw_stream_connect(data.stream,
+                      PW_DIRECTION_INPUT,
+                      PW_ID_ANY,
+                      PW_STREAM_FLAG_AUTOCONNECT |
+                      PW_STREAM_FLAG_MAP_BUFFERS |
+                      PW_STREAM_FLAG_RT_PROCESS,
+                      params, 1);
+    */
+    pw_stream_connect(data.stream,
+                      PW_DIRECTION_INPUT,
+                      PW_ID_ANY,
+                      PW_STREAM_FLAG_AUTOCONNECT |
+                      PW_STREAM_FLAG_MAP_BUFFERS |
+                      PW_STREAM_FLAG_RT_PROCESS,
+                      params, 1);
+    
+    pw_main_loop_run(data.loop);
+    pw_stream_destroy(data.stream);
+    pw_main_loop_destroy(data.loop);
+    pw_deinit();
+
+    return 0;
 }
 #endif

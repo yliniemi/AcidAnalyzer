@@ -1,4 +1,4 @@
-# AcidAnalyzer
+# Acid Analyzer
 
 The most accurate open source specrum analyzer. Check this video to see what I'm talking about.
 https://www.youtube.com/watch?v=7z2ppEhz4gE

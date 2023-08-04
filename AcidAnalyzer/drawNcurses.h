@@ -6,4 +6,4 @@
 #include <wchar.h>
 #include <ncursesw/ncurses.h>
 
-void drawSpectrum(double *soundArray, int x_size, int y_size, int y_startingLine, bool uprigth);
+void drawSpectrum(double *soundArray, int64_t x_size, int64_t y_size, int64_t y_startingLine, bool uprigth);

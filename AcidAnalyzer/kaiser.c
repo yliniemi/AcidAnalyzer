@@ -26,8 +26,8 @@ double besselI0(double x) {
     return -numerator/denominator;
 }
 
-void generateKaiserWindow(int N, double beta, double *window) {
-    int i;
+void generateKaiserWindow(int64_t N, double beta, double *window) {
+    int64_t i;
     double alpha, denom;
 
     alpha = (N - 1) / 2.0;

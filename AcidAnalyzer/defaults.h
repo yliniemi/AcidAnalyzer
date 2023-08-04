@@ -13,7 +13,12 @@
 struct Global
 {
     struct RingBuffer allBuffer;
-    int sampleRate;
-    int channels;
+    int64_t sampleRate;
+    int64_t channels;
+    double fps;
+    int64_t FFTsize;
+    int64_t threads;
+    double kaiserBeta;
+    double dynamicRange;
 };
 

@@ -31,29 +31,29 @@
 
 extern struct Global global;
 
-// void setChannels(int newChannels);
+// void setChannels(int64_t newChannels);
 
-// void setSampleRate(int newSampleRate);
+// void setSampleRate(int64_t newSampleRate);
 
-void multiplyArrays(const double* array1, const double* array2, double* result, int size);
+void multiplyArrays(const double* array1, const double* array2, double* result, int64_t size);
 
-double checkRatio(double ratio, double startingPoint, int rounds);
+double checkRatio(double ratio, double startingPoint, int64_t rounds);
 
-double findRatio(int maxDepth, double low, double high, double lowestValid, double startingPoint, double endGoal, int rounds);
+double findRatio(int64_t maxDepth, double low, double high, double lowestValid, double startingPoint, double endGoal, int64_t rounds);
 
-void complexPowerToRealPower(fftw_complex *complexData, double *realPower, int numberOfElements);
+void complexPowerToRealPower(fftw_complex *complexData, double *realPower, int64_t numberOfElements);
 
-int min(int a, int b);
+int64_t min(int64_t a, int64_t b);
 
-int max(int a, int b);
+int64_t max(int64_t a, int64_t b);
 
-void zeroSmallBins(double* output, int samples, double substract);
+void zeroSmallBins(double* output, int64_t samples, double substract);
 
-void normalizeLogBands(double *bands, int size, double dynamicRange);
+void normalizeLogBands(double *bands, int64_t size, double dynamicRange);
 
-void powTwoBands(double *realPower, double *bands, int n_bands, int startingPoint, double ratio);
+void powTwoBands(double *realPower, double *bands, int64_t n_bands, int64_t startingPoint, double ratio);
 
-void logBands(double *bands, double *logBands, int n_bands, int startingPoint, double ratio);
+void logBands(double *bands, double *logBands, int64_t n_bands, int64_t startingPoint, double ratio);
 
 void* threadFunction(void* arg);
 
