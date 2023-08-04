@@ -42,8 +42,10 @@ make
 
 ### Command line arguments
 
-There are currently no command line arguments. I will support them when I learn how.
-
+Example
+```console
+./AcidAnalyzer --fps 122 --FFTsize 16384 --dynamicRange 60 --kaiserBeta 5.0
+```
 
 ### Keyboard shortcuts
 
