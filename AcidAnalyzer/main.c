@@ -106,6 +106,7 @@ static void on_process(void *userData)
             }
             increaseBufferWriteIndex(&global.allBuffer, n_samples);
             free(audio);
+            // printw("d");
         }
         // writeBuffer(&global.allBuffer, (uint8_t*)buf->datas[0].data, 0, n_samples);
 
@@ -152,10 +153,10 @@ void on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *par
         if (global.channels != data->format.info.raw.channels)
         {
             global.channels = data->format.info.raw.channels;
-            initializeBufferWithChunksSize(&global.allBuffer, global.channels, 65536, sizeof(double), global.FFTsize);
+            initializeBufferWithChunksSize(&global.allBuffer, global.channels, EXTRA_BUFFER, sizeof(double), global.FFTsize);
             global.allBuffer.partialRead = true;
-            printw("initialized the buffer with %d size", global.allBuffer.size);
-            refresh;
+            printw("initialized the buffer with %d size and %d channels", global.allBuffer.size, global.channels);
+            refresh();
         }
         
         
@@ -217,7 +218,7 @@ void parseArguments(int64_t argc, char *argv[])
 }
 
 #ifndef THIS_IS_A_TEST
-int64_t main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     struct data data = { 0, };
     const struct spa_pod *params[1];
@@ -228,7 +229,7 @@ int64_t main(int argc, char *argv[])
     global.sampleRate = 1;
     global.channels = 1;
     global.fps = FPS;
-    global.FFTsize = global.FFTsize;
+    global.FFTsize = NUMBER_OF_FFT_SAMPLES;
     global.threads = sysconf(_SC_NPROCESSORS_ONLN);
     global.dynamicRange = DYNAMIC_RANGE;
     global.kaiserBeta = KAISER_BETA;
@@ -247,7 +248,6 @@ int64_t main(int argc, char *argv[])
     
     parseArguments(argc, argv);
     
-    refresh;
     refresh();
     // nanosleep(&(struct timespec){.tv_sec = 10}, NULL);
     // init_color(COLOR_WHITE, 900, 0, 0);
@@ -262,6 +262,8 @@ int64_t main(int argc, char *argv[])
     init_pair(2, COLOR_BLACK, COLOR_CYAN);
     init_pair(3, COLOR_WHITE, COLOR_BLACK);
     color_set(3, NULL);
+    printw("colors loaded\n");
+    refresh();
     // attron(COLOR_PAIR(1));
     
     // fprintf(stdout, "sizeof(fftw_complex) = %d\n", sizeof(fftw_complex));
@@ -334,6 +336,9 @@ int64_t main(int argc, char *argv[])
                       PW_STREAM_FLAG_MAP_BUFFERS |
                       PW_STREAM_FLAG_RT_PROCESS,
                       params, 1);
+    
+    printw("initialized audio capture\n");
+    refresh();
     
     pw_main_loop_run(data.loop);
     pw_stream_destroy(data.stream);

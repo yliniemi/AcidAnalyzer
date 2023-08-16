@@ -4,6 +4,6 @@
 
 #include <locale.h>
 #include <wchar.h>
-#include <ncursesw/ncurses.h>
+#include <ncurses.h>
 
 void drawSpectrum(double *soundArray, int64_t x_size, int64_t y_size, int64_t y_startingLine, bool uprigth);

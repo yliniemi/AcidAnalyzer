@@ -9,6 +9,8 @@
 #define COLOR0 0, 0, 1000
 #define COLOR1 300, 300, 1000
 
+#define EXTRA_BUFFER 655360
+
 
 struct Global
 {

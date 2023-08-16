@@ -153,6 +153,9 @@ void* threadFunction(void* arg)
     generateKaiserWindow(global.FFTsize, KAISER_BETA, windowingArray);
 
     double *audio = (double*) malloc(sizeof(double) * global.FFTsize);
+    
+    printw("initialized FFT thread\n");
+    refresh();
 
     while(true)
     {
@@ -161,11 +164,15 @@ void* threadFunction(void* arg)
             struct winsize w;
             ioctl(0, TIOCGWINSZ, &w);
             static int64_t windowColums = 0;
+            static int64_t windowRows = 0;
             static double ratio = 0;
             static int64_t startingPoint = 3;
             static int64_t oldSampleRate = 1;
             static int64_t frameNumber = 0;
-            bool updatedRatio = false;
+            bool updatedSomething = false;
+            
+            // printw(".");
+            // refresh();
             
             if (w.ws_col != windowColums || global.sampleRate != oldSampleRate)
             {
@@ -181,7 +188,12 @@ void* threadFunction(void* arg)
                 nanosleep(&req, &rem);
                 */
                 ratio = findRatio(60, 0, 1, 0, startingPoint, n_bins, windowColums);
-                updatedRatio = true;
+                updatedSomething = true;
+            }
+            if (w.ws_row != windowRows)
+            {
+                windowRows = w.ws_row;
+                updatedSomething = true;
             }
             struct timespec ts;
             clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
@@ -189,10 +201,11 @@ void* threadFunction(void* arg)
             uint64_t new_ns = ts.tv_sec * 1000000000 + ts.tv_nsec;
             uint64_t delta_ns = new_ns - old_ns;
 
-            uint64_t newSamples = min(global.FFTsize, global.sampleRate * delta_ns / 996000000 + 1);
+            int64_t newSamples = min(global.FFTsize, global.sampleRate * delta_ns / 996000000 + 1);
             int64_t readSamples = increaseBufferReadIndex(&global.allBuffer, newSamples);
             if (readSamples <= 0) goto skip;
-            frameNumber++;            
+            // printw("s");
+            frameNumber++;
             
             for (int64_t channel = 0; channel < global.channels; channel++)
             {
@@ -214,9 +227,11 @@ void* threadFunction(void* arg)
 	            {
 	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, true);
 	            }
+	            // printw("%d", global.channels);
+                // refresh();
             }
             static uint64_t printDebug_ns = 0;
-            if ((w.ws_row % global.channels != 0 && (printDebug_ns + 10000000000 < new_ns)) || updatedRatio == true)
+            if ((w.ws_row % global.channels != 0 && (printDebug_ns + 10000000000 < new_ns)) || updatedSomething == true)
             {
                 uint64_t printDebug_delta_ns = new_ns - printDebug_ns;
                 double actualFPS = (double)frameNumber / (double)printDebug_delta_ns * 1000000000;
@@ -255,6 +270,7 @@ void* threadFunction(void* arg)
         {
             old_ns = ts.tv_sec * 1000000000 + ts.tv_nsec;
         }
+        
     }
 }
 

@@ -17,6 +17,11 @@ void initializeBufferWithChunksSize(struct RingBuffer *rb, int64_t numberOfBuffe
     rb->readIndex = 0;
     rb->writeIndex = 0;
     rb->buffers = calloc(rb->numberOfBuffers, sizeof(uint8_t*));
+    if (rb->buffers == NULL)
+    {
+        printw("failed to initialize buffer buffer\n");
+        refresh();
+    }
     rb->partialWrite = false;
     rb->partialRead = false;
     rb->tooMuch = 0;
@@ -24,7 +29,14 @@ void initializeBufferWithChunksSize(struct RingBuffer *rb, int64_t numberOfBuffe
     for (int64_t i = 0; i < rb->numberOfBuffers; i++)
     {
         rb->buffers[i] = (uint8_t*)calloc(rb->size * rb->elementSize, sizeof(uint8_t));
+        if (rb->buffers[i] == NULL)
+        {
+            printw("failed to initialize one of the buffers\n");
+            refresh();
+        }
     }
+    // printw("initialized buffer for real\n");
+    // refresh();
 }
 
 void initializeBuffer(struct RingBuffer *rb, int64_t numberOfBuffers, int64_t size, int64_t elementSize)
