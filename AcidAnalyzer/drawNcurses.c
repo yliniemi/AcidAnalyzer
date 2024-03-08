@@ -1,5 +1,15 @@
 #include <drawNcurses.h>
 
+#include <locale.h>
+#include <wchar.h>
+#include <ncurses.h>
+
+
+void killNcurses()
+{
+    endwin();
+}
+
 void drawSpectrum(double *soundArray, int64_t x_size, int64_t y_size, int64_t y_startingLine, bool uprigth)
 {
     static wchar_t *character[] = {L" ", L"\u2581" , L"\u2582" , L"\u2583" , L"\u2584" , L"\u2585" , L"\u2586" , L"\u2587" , L"\u2588"};

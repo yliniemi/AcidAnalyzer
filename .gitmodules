@@ -1,0 +1,3 @@
+[submodule "linmath.h"]
+	path = linmath.h
+	url = https://github.com/datenwolf/linmath.h

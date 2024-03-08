@@ -18,42 +18,29 @@
 
 #pragma once
 
-#include <ringBuffer.h>
-#include <defaults.h>
-#include <kaiser.h>
 #include <stdint.h>
-#include <drawNcurses.h>
-#include <math.h>
-#include <complex.h>
-#include <fftw3.h>
-#include <sys/ioctl.h>
-#include <time.h>
+#include <stdbool.h>
 
-extern struct Global global;
 
-// void setChannels(int64_t newChannels);
+// void multiplyArrays(const double* array1, const double* array2, double* result, int64_t size);
 
-// void setSampleRate(int64_t newSampleRate);
-
-void multiplyArrays(const double* array1, const double* array2, double* result, int64_t size);
-
-double checkRatio(double ratio, double startingPoint, int64_t rounds);
+// double checkRatio(double ratio, double startingPoint, int64_t rounds);
 
 double findRatio(int64_t maxDepth, double low, double high, double lowestValid, double startingPoint, double endGoal, int64_t rounds);
 
-void complexPowerToRealPower(fftw_complex *complexData, double *realPower, int64_t numberOfElements);
+// void complexPowerToRealPower(fftw_complex *complexData, double *realPower, int64_t numberOfElements);
 
-int64_t min(int64_t a, int64_t b);
+// int64_t min(int64_t a, int64_t b);
 
-int64_t max(int64_t a, int64_t b);
+// int64_t max(int64_t a, int64_t b);
 
-void zeroSmallBins(double* output, int64_t samples, double substract);
+// void zeroSmallBins(double* output, int64_t samples, double substract);
 
-void normalizeLogBands(double *bands, int64_t size, double dynamicRange);
+// void normalizeLogBands(double *bands, int64_t size, double dynamicRange);
 
-void powTwoBands(double *realPower, double *bands, int64_t n_bands, int64_t startingPoint, double ratio);
+// void powTwoBands(double *realPower, double *bands, int64_t n_bands, int64_t startingPoint, double ratio);
 
-void logBands(double *bands, double *logBands, int64_t n_bands, int64_t startingPoint, double ratio);
+// void logBands(double *bands, double *logBands, int64_t n_bands, int64_t startingPoint, double ratio);
 
 void* threadFunction(void* arg);
 

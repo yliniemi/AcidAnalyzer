@@ -1,19 +1,20 @@
 
 #define THIS_IS_A_TEST
 #include "main.c"
+#include <kaiser.h>
 
 
 int64_t testKaiser()
 {
     int64_t N = 4096;  // Window length
-    double alpha = 3.0;  // Kaiser parameter
+    double alpha = 6.815;  // Kaiser parameter
 
     double window[N];
     generateKaiserWindow(N, alpha * PI, window);
     fprintf(stdout, "Kaiser Window:\n");
-    fprintf(stdout, "\ndouble kaiser_3_4096[] = \n{ ");
+    fprintf(stdout, "\ndouble kaiser_alpha_6.815_4096[] = \n{ ");
     for (int64_t i = 0; i < N; i++) {
-        if (i % 8 == 0) fprintf(stdout, "\n");
+        if (i % 4 == 0) fprintf(stdout, "\n");
         fprintf(stdout, "%.17e, ", window[i]);
     }
     fprintf(stdout, "\b\b  \n}\n\n");

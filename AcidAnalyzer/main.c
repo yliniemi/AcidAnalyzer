@@ -26,7 +26,7 @@
 #include <sys/ioctl.h>
 #include <complex.h> 
 #include <fftw3.h>
-#include <time.h>
+// #include <time.h>
 #include <pthread.h>
 
 #include <spa/param/audio/format-utils.h>
@@ -36,10 +36,16 @@
 // #include <kaiser.h>
 #include <ringBuffer.h>
 #include <properFFTalgorithm.h>
+#include <defaults.h>
+
+#include <locale.h>
+#include <wchar.h>
+#include <ncurses.h>
+
 
 struct Global global;
 
-pthread_t readStuff;
+pthread_t readStuff, glfwThread;
 
 void deinterleaveArrays(const float* interleavedData, float** outputArrays, int64_t numArrays, int64_t length) {
     for (int64_t i = 0; i < numArrays; i++) {
@@ -153,7 +159,7 @@ void on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *par
         if (global.channels != data->format.info.raw.channels)
         {
             global.channels = data->format.info.raw.channels;
-            initializeBufferWithChunksSize(&global.allBuffer, global.channels, EXTRA_BUFFER, sizeof(double), global.FFTsize);
+            initializeBufferWithChunksSize(&global.allBuffer, global.channels, global.bufferExtra, sizeof(double), global.FFTsize);
             global.allBuffer.partialRead = true;
             printw("initialized the buffer with %d size and %d channels", global.allBuffer.size, global.channels);
             refresh();
@@ -194,28 +200,127 @@ void parseArguments(int64_t argc, char *argv[])
         {
             replaceChar(argv[i + 1], ',', '.');
             global.fps = strtod(argv[i + 1], NULL);
-            printw(", fps = %f", global.fps);
+            printw("fps = %f\n", global.fps);
         }
         if (strcmp(argv[i], "--FFTsize") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.FFTsize = strtol(argv[i + 1], NULL, 10);
-            printw(", FFTsize = %d", global.FFTsize);
+            printw("FFTsize = %d\n", global.FFTsize);
         }
         if (strcmp(argv[i], "--dynamicRange") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.dynamicRange = strtod(argv[i + 1], NULL) / 10.0;  // conversion from Bel to deciBel
-            printw(", dynamicRange = %f", global.dynamicRange);
+            printw("dynamicRange = %f\n", global.dynamicRange);
         }
         if (strcmp(argv[i], "--kaiserBeta") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.kaiserBeta = strtod(argv[i + 1], NULL);
-            printw(", kaiserBeta = %f", global.kaiserBeta);
+            printw("kaiserBeta = %f\n", global.kaiserBeta);
+        }
+        if (strcmp(argv[i], "--bufferExtra") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.bufferExtra = strtol(argv[i + 1], NULL, 10);
+            printw("bufferExtra = %d\n", global.bufferExtra);
+        }
+        if (strcmp(argv[i], "--minFrequency") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.minFrequency = strtod(argv[i + 1], NULL);
+            printw("minFrequency = %f\n", global.minFrequency);
+        }
+        if (strcmp(argv[i], "--maxFrequency") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.maxFrequency = strtod(argv[i + 1], NULL);
+            printw("maxFrequency = %f\n", global.maxFrequency);
+        }
+        if (strcmp(argv[i], "--bars") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.numBars = strtol(argv[i + 1], NULL, 10);
+            printw("numBars = %d\n", global.numBars);
+        }
+        if (strcmp(argv[i], "--colors0") == 0)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                replaceChar(argv[i + 1 + j], ',', '.');
+                global.colors[0][j] = strtol(argv[i + 1 + j], NULL, 10);
+            }
+            printw("colors[0] = {%d, %d, %d}\n", global.colors[0][0], global.colors[0][1], global.colors[0][2]);
+        }
+        if (strcmp(argv[i], "--colors1") == 0)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                replaceChar(argv[i + 1 + j], ',', '.');
+                global.colors[1][j] = strtol(argv[i + 1 + j], NULL, 10);
+            }
+            printw("colors[1] = {%d, %d, %d}\n", global.colors[1][0], global.colors[1][1], global.colors[1][2]);
+        }
+        if (strcmp(argv[i], "--ncurses") == 0)
+        {
+            if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "false") == 0)
+            {
+                global.usingNcurses = false;
+            }
+            else
+            {
+                global.usingNcurses = true;
+            }
+            printw("usingNcurses = %s\n", global.usingNcurses ? "true" : "false");
+        }
+        if (strcmp(argv[i], "--glfw") == 0)
+        {
+            if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "false") == 0)
+            {
+                global.usingGlfw = false;
+            }
+            else
+            {
+                global.usingGlfw = true;
+            }
+            printw("usingGlfw = %s\n", global.usingGlfw ? "true" : "false");
         }
     }
 }
+
+float sqrtApprox(float number)
+{
+  union { float f; uint32_t u; } y = {number};
+  y.u = 0x5F1FFFF9ul - (y.u >> 1);
+  return number * 0.703952253f * y.f * (2.38924456f - number * y.f * y.f);
+}
+
+int16_t sinArray[320];
+int16_t *cosArray = &sinArray[64];
+
+void fillSinArray()
+{
+    for (int i = 0; i < 320; i++)
+    {
+        sinArray[i] = round(sin((double)i * 2.0 * PI / 256.0) * 32767.0);
+    }
+}
+
+int32_t sinApprox(uint32_t angle)  // 16777216 is a full circle
+{
+    uint8_t angle256 = angle / 65536;
+    uint32_t subAngle256 = angle % 65536;
+    return sinArray[angle256] * (65536 - subAngle256) + sinArray[angle256 + 1] * subAngle256;
+}
+
+int32_t cosApprox(uint32_t angle)  // 16777216 is a full circle
+{
+    uint8_t angle256 = angle / 65536;
+    uint32_t subAngle256 = angle % 65536;
+    return cosArray[angle256] * (65536 - subAngle256) + cosArray[angle256 + 1] * subAngle256;
+}
+
 
 #ifndef THIS_IS_A_TEST
 int main(int argc, char *argv[])
@@ -233,17 +338,34 @@ int main(int argc, char *argv[])
     global.threads = sysconf(_SC_NPROCESSORS_ONLN);
     global.dynamicRange = DYNAMIC_RANGE;
     global.kaiserBeta = KAISER_BETA;
-            
+    global.bufferExtra = BUFFER_EXTRA;
+    global.minFrequency = MIN_FREQUENCY;
+    global.maxFrequency = MAX_FREQUENCY;
+    global.usingNcurses = USING_NCURSES;
+    global.usingGlfw = USING_GLFW;
+    global.numBars = NUM_BARS;
+    int64_t defaultColors[2][3] = {{COLOR0}, {COLOR1}};
+    for (int64_t i = 0; i < 2; i++)
+    {
+        for (int64_t j = 0; j < 3; j++)
+        {
+            global.colors[i][j] = defaultColors[i][j];
+        }
+    }
     double colorR, colorG, colorB;
     printf("\033]0;Acid Analyzer\007");
     setlocale(LC_ALL, "");
     setlocale(LC_NUMERIC, "en_GB.UTF-8");
     initscr();
+    noecho();
+    timeout(0);
+    
     curs_set(0);
     start_color();
     srand(time(NULL));
     // HSLtoRGB((double)rand() / RAND_MAX, 1.0, 0.5, &colorR, &colorG, &colorB);
     // mvprintw(1, 0, "%lf, %lf, %lf", colorR, colorG, colorB);
+    // benchmarkShit();
     printw("program started \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588\n");
     
     parseArguments(argc, argv);
@@ -255,8 +377,11 @@ int main(int argc, char *argv[])
     // init_pair(1, COLOR_WHITE, COLOR_BLACK);
     // init_pair(1, 1 + rand() % 15, COLOR_BLACK);
     
-    init_color(COLOR_BLUE, COLOR0);
-    init_color(COLOR_CYAN, COLOR1);
+    // init_color(COLOR_BLUE, COLOR0);
+    // init_color(COLOR_CYAN, COLOR1);
+    
+    init_color(COLOR_BLUE, global.colors[0][0], global.colors[0][1], global.colors[0][2]);
+    init_color(COLOR_CYAN, global.colors[1][0], global.colors[1][1], global.colors[1][2]);
     
     init_pair(1, COLOR_BLUE, COLOR_BLACK);
     init_pair(2, COLOR_BLACK, COLOR_CYAN);
@@ -270,6 +395,9 @@ int main(int argc, char *argv[])
 
     /* and wait while we let things run */
     pthread_create(&readStuff, NULL, threadFunction, NULL);
+    // initializeGlfw();
+    sleep(1);
+    // pthread_create(&glfwThread, NULL, testGlfw, NULL);
     sleep(1);
 
     pw_init(&argc, &argv);
@@ -341,6 +469,8 @@ int main(int argc, char *argv[])
     refresh();
     
     pw_main_loop_run(data.loop);
+    
+    // maybe I should do these when I quit
     pw_stream_destroy(data.stream);
     pw_main_loop_destroy(data.loop);
     pw_deinit();

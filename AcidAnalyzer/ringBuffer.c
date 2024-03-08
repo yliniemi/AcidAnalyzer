@@ -1,5 +1,10 @@
 #include <ringBuffer.h>
 
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h> // memcpy
+
+
 void initializeBufferWithChunksSize(struct RingBuffer *rb, int64_t numberOfBuffers, int64_t size, int64_t elementSize, int64_t chunkSize)
 {
     if (rb->buffers != NULL)
@@ -19,8 +24,8 @@ void initializeBufferWithChunksSize(struct RingBuffer *rb, int64_t numberOfBuffe
     rb->buffers = calloc(rb->numberOfBuffers, sizeof(uint8_t*));
     if (rb->buffers == NULL)
     {
-        printw("failed to initialize buffer buffer\n");
-        refresh();
+        // printw("failed to initialize buffer buffer\n");
+        // refresh();
     }
     rb->partialWrite = false;
     rb->partialRead = false;
@@ -31,8 +36,8 @@ void initializeBufferWithChunksSize(struct RingBuffer *rb, int64_t numberOfBuffe
         rb->buffers[i] = (uint8_t*)calloc(rb->size * rb->elementSize, sizeof(uint8_t));
         if (rb->buffers[i] == NULL)
         {
-            printw("failed to initialize one of the buffers\n");
-            refresh();
+            // printw("failed to initialize one of the buffers\n");
+            // refresh();
         }
     }
     // printw("initialized buffer for real\n");

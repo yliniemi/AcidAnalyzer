@@ -17,6 +17,22 @@
 */
 
 #include <properFFTalgorithm.h>
+#include <nanoTime.h>
+#include <ringBuffer.h>
+#include <defaults.h>
+#include <kaiser.h>
+#include <drawNcurses.h>
+#include <drawGLFW.h>
+#include <ncurses.h>
+
+#include <math.h>
+#include <complex.h>
+#include <fftw3.h>
+#include <sys/ioctl.h>
+#include <stdlib.h>
+
+extern struct Global global;
+
 
 
 
@@ -138,7 +154,6 @@ void logBands(double *bands, double *logBands, int64_t n_bands, int64_t starting
 
 void* threadFunction(void* arg)
 {
-    struct timespec start, end;
     double *windowingArray = (double*) malloc(sizeof(double) * global.FFTsize);
     double *real_in = (double*) fftw_malloc(sizeof(double) * global.FFTsize);
     fftw_complex *complex_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * global.FFTsize);
@@ -156,14 +171,20 @@ void* threadFunction(void* arg)
     
     printw("initialized FFT thread\n");
     refresh();
-
+    
+    
+    if (global.usingGlfw)
+    {
+        initializeGlfw();
+    }
+    // if (global.usingNcurses) initializeNcurses();
+    
     while(true)
     {
         if (global.allBuffer.buffers != NULL)
         {
             struct winsize w;
             ioctl(0, TIOCGWINSZ, &w);
-            static int64_t windowColums = 0;
             static int64_t windowRows = 0;
             static double ratio = 0;
             static int64_t startingPoint = 3;
@@ -171,23 +192,24 @@ void* threadFunction(void* arg)
             static int64_t frameNumber = 0;
             bool updatedSomething = false;
             
-            // printw(".");
-            // refresh();
+            static int64_t oldNumBars = -1;
+            if (global.usingNcurses) global.numBars = w.ws_col;
             
-            if (w.ws_col != windowColums || global.sampleRate != oldSampleRate)
+            if (global.numBars != oldNumBars || global.sampleRate != oldSampleRate)
             {
-                windowColums = w.ws_col;
+                if (global.sampleRate != oldSampleRate) increaseBufferReadIndex(&global.allBuffer, 1000000000000);
                 oldSampleRate = global.sampleRate;
-                startingPoint = max(20 * global.FFTsize / global.sampleRate + 1, 3);
-                int64_t n_bins = min(global.FFTsize / 2, 20000 * global.FFTsize / global.sampleRate);
+                oldNumBars = global.numBars;
+                startingPoint = max(global.minFrequency * global.FFTsize / global.sampleRate + 1, 3);
+                int64_t n_bins = min(global.FFTsize / 2, global.maxFrequency * global.FFTsize / global.sampleRate);
                 /*
-                printw("\nstartingPoint = %lld, bins = %lld, columns = %d", startingPoint, n_bins, windowColums);
+                printw("\nstartingPoint = %lld, bins = %lld, columns = %d", startingPoint, n_bins, global.numBars);
                 refresh();
                 struct timespec rem;
                 struct timespec req = {30, 0};
                 nanosleep(&req, &rem);
                 */
-                ratio = findRatio(60, 0, 1, 0, startingPoint, n_bins, windowColums);
+                ratio = findRatio(60, 0, 1, 0, startingPoint, n_bins, global.numBars);
                 updatedSomething = true;
             }
             if (w.ws_row != windowRows)
@@ -195,17 +217,20 @@ void* threadFunction(void* arg)
                 windowRows = w.ws_row;
                 updatedSomething = true;
             }
-            struct timespec ts;
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-            static uint64_t old_ns = 0;
-            uint64_t new_ns = ts.tv_sec * 1000000000 + ts.tv_nsec;
-            uint64_t delta_ns = new_ns - old_ns;
+            static int64_t old_ns = 0;
+            int64_t new_ns = nanoTime();
+            int64_t delta_ns = new_ns - old_ns;
 
-            int64_t newSamples = min(global.FFTsize, global.sampleRate * delta_ns / 996000000 + 1);
+            int64_t newSamples = global.sampleRate * delta_ns / 999000000 + 1;
             int64_t readSamples = increaseBufferReadIndex(&global.allBuffer, newSamples);
-            if (readSamples <= 0) goto skip;
+            if (readSamples <= 0)
+            {
+                nanoSleepUniversal(1000000);
+                goto skip;
+            }
             // printw("s");
             frameNumber++;
+            if (global.usingGlfw) startFrame();
             
             for (int64_t channel = 0; channel < global.channels; channel++)
             {
@@ -215,21 +240,38 @@ void* threadFunction(void* arg)
 	            multiplyArrays((double*)complex_out, (double*)complex_out, (double*)complexPower, global.FFTsize);  // these two steps turn co complex numbers
 	            complexPowerToRealPower(complexPower, realPower, global.FFTsize / 2);  // into the power of the lenght of ampltude
 	            zeroSmallBins(realPower, global.FFTsize / 2, 1.0 / (pow(10, global.dynamicRange + 0.3)));
-	            powTwoBands(realPower, bands_out, windowColums, startingPoint, ratio);
-	            logBands(bands_out, log10_bands, windowColums, startingPoint, ratio);
-	            normalizeLogBands(log10_bands, windowColums, global.dynamicRange);
+	            powTwoBands(realPower, bands_out, global.numBars, startingPoint, ratio);
+	            logBands(bands_out, log10_bands, global.numBars, startingPoint, ratio);
+	            normalizeLogBands(log10_bands, global.numBars, global.dynamicRange);
 	            color_set(1, NULL);
 	            if (global.channels == 2 && channel == 1)
 	            {
-	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, false);
+	                if (global.usingGlfw)
+	                {
+	                    glfwSpectrum(log10_bands, global.numBars, 1.0, global.channels, channel, false, true, 0.2);
+	                }
+	                if (global.usingNcurses)
+	                {
+	                    drawSpectrum(log10_bands, global.numBars, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, false);
+	                }
 	            }
 	            else
 	            {
-	                drawSpectrum(log10_bands, windowColums, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, true);
+	                if (global.usingGlfw)
+	                {
+	                    glfwSpectrum(log10_bands, global.numBars, 1.0, global.channels, channel, true, true, 0.2);
+	                }
+	                if (global.usingNcurses)
+	                {
+	                    drawSpectrum(log10_bands, global.numBars, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, true);
+	                }
 	            }
+	            
 	            // printw("%d", global.channels);
                 // refresh();
             }
+            
+            
             static uint64_t printDebug_ns = 0;
             if ((w.ws_row % global.channels != 0 && (printDebug_ns + 10000000000 < new_ns)) || updatedSomething == true)
             {
@@ -237,39 +279,34 @@ void* threadFunction(void* arg)
                 double actualFPS = (double)frameNumber / (double)printDebug_delta_ns * 1000000000;
                 move(w.ws_row - 1, 0);
                 color_set(3, NULL);
-                printw("fps = %6f, sample rate = %d, FFTsize = %d, threads = %d, ratio = %f, columns = %d", actualFPS, global.sampleRate, global.FFTsize, global.threads, ratio, w.ws_col);
+                printw("fps = %6f, sample rate = %d, FFTsize = %d, threads = %d, ratio = %f, bars = %d ", actualFPS, global.sampleRate, global.FFTsize, global.threads, ratio, global.numBars);
                 printDebug_ns = new_ns;
                 frameNumber = 0;
             }
             
-            // mvprintw(0, 0, "%d, %d", allBuffer.writeIndex, readSamples);
-            // mvprintw(1, 0, "%d, %d", allBuffer.readIndex, startingPoint);
             refresh();
+            if (global.usingGlfw) finalizeFrame();
+            
+            int64_t c = getch();
+            if ((c == 27) || (c == 'q'))
+            {
+                killAll();
+            }
             old_ns = new_ns;
         }
+        
+        if (global.usingGlfw == false)
+        {
+            int64_t interval = 1000000000 / global.fps;       // in nanoseconds
+            static int64_t old_ns = 0;
+            int64_t new_ns = nanoTime();
+            int64_t delta_ns = new_ns - old_ns;
+            int64_t sleepThisLong = max(interval - (int)delta_ns, 0);
+            int64_t remainingSleep = nanoSleepUniversal(sleepThisLong);
+            old_ns = nanoTime();
+        }
+        
         skip:;
-        uint64_t interval = 1000000000 / global.fps;       // in nanoseconds
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-        static uint64_t old_ns = 0;
-        uint64_t new_ns = ts.tv_sec * 1000000000 + ts.tv_nsec;
-        uint64_t delta_ns = new_ns - old_ns;
-        struct timespec remaining;
-        uint64_t sleepThisLong = max(interval - (int)delta_ns, 0);
-        struct timespec requested = {sleepThisLong / 1000000000, sleepThisLong % 1000000000};
-        nanosleep(&requested, &remaining);
-        uint64_t remainingSleep = remaining.tv_sec * 1000000000 + remaining.tv_nsec;
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-        /*
-        if (sleepThisLong > 0)
-        {
-            old_ns += new_ns + interval - delta_ns;
-        }
-        else
-        */
-        {
-            old_ns = ts.tv_sec * 1000000000 + ts.tv_nsec;
-        }
         
     }
 }
