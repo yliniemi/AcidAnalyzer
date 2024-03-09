@@ -36,6 +36,14 @@ static int64_t currentNanoTime = 0;
 static double xRatio = 1;
 static double yRatio = 1;
 
+static double offsetX = 0.0;
+static double offsetY = 0.0;
+static int64_t errorX = 0;
+static int64_t errorY = 0;
+
+static int64_t sizeInt = 0;
+static double emptyCircleRatio = 0.2;
+
 float properSin(float ratioAngle)
 {
     return sinf(ratioAngle * 2 * PI);
@@ -142,7 +150,7 @@ struct RGB HSVToRGB(struct HSV hsv)
 	return rgb;
 }
 
-void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool uprigth, bool isCircle, double emptyCircleRatio)
+void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool uprigth, bool isCircle)
 {
     float biggestNoiseScale = 0.05;
     float smallestTimeScale = 0.00000000008;
@@ -198,12 +206,12 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 rigthSin = properSin(rigth / 4 + tilt) * yRatio;
             }
             glBegin(GL_QUADS);
-            glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) , leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio));
-            glVertex2f(rigthCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) , rigthSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio));
+            glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
+            glVertex2f(rigthCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rigthSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
             // glVertex2f(rigth, bottom);
             // glVertex2f(left, bottom);
-            glVertex2f(rigthCos * emptyCircleRatio, rigthSin * emptyCircleRatio);
-            glVertex2f(leftCos * emptyCircleRatio, leftSin * emptyCircleRatio);
+            glVertex2f(rigthCos * emptyCircleRatio + offsetX, rigthSin * emptyCircleRatio + offsetY);
+            glVertex2f(leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY);
             glEnd();
         }
         else
@@ -288,7 +296,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         {
             windowCloseCallback(window);
         }
-        else if (key == GLFW_KEY_M)
+        if (key == GLFW_KEY_M)
         {
             if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL)
             {
@@ -299,9 +307,42 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             }
         }
-        else if (key == GLFW_KEY_F)
+        if (key == GLFW_KEY_F)
         {
             toggleFullscreen(window);
+        }
+    }
+    if (action == GLFW_REPEAT || action == GLFW_PRESS)
+    {
+        if (key == GLFW_KEY_UP)
+        {
+            sizeInt++;
+        }
+        if (key == GLFW_KEY_DOWN)
+        {
+            sizeInt--;
+        }
+        if (key == GLFW_KEY_RIGHT)
+        {
+            if (emptyCircleRatio < 1)
+            {
+                emptyCircleRatio += 0.01;
+            }
+            else
+            {
+                emptyCircleRatio *= 1.01;
+            }
+        }
+        if (key == GLFW_KEY_LEFT)
+        {
+            if (emptyCircleRatio < 1)
+            {
+                emptyCircleRatio -= 0.01;
+            }
+            else
+            {
+                emptyCircleRatio *= 0.99;
+            }
         }
     }
 }
@@ -340,9 +381,10 @@ void preInitializeWindow()
 {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    // glfwWindowHint(GLFW_SAMPLES, 16);
+    // glfwWindowHint(GLFW_DEPTH_BITS, 16);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
-    glfwWindowHint(GLFW_SAMPLES, 16);
-    glfwWindowHint(GLFW_DEPTH_BITS, 16);
+    // glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
 }
 
 void postInitializeWindow()
@@ -356,8 +398,8 @@ void postInitializeWindow()
                  glfwExtensionSupported("GLX_EXT_swap_control_tear"));
     
     
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // glfwSetWindowOpacity(window, 0.5f);
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     
@@ -416,6 +458,13 @@ void startFrame()
         yRatio = 1;
     }
     
+    double sizeRatio = pow(1.01, sizeInt);
+    xRatio *= sizeRatio;
+    yRatio *= sizeRatio;
+    
+    offsetX = (errorX * 2.0) / width;
+    offsetY = (errorY * 2.0) / height;
+    
     glViewport(0, 0, width, height);
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -450,6 +499,44 @@ void finalizeFrame()
         postInitializeWindow();
     }
     
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
+    {
+        int width, height;
+        bool windowIsFloating = glfwGetWindowAttrib(window, GLFW_FLOATING);
+        glfwGetWindowSize(window, &width, &height);
+        glfwDestroyWindow(window);
+        preInitializeWindow();
+        if (windowIsFloating)
+        {
+            glfwWindowHint(GLFW_FLOATING, GLFW_FALSE);
+        }
+        else
+        {
+            glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
+        }
+        glfwCreateWindow(width, height, "Acid Analyzer", NULL, NULL);
+        postInitializeWindow();
+    }
+    
+    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
+    {
+        int width, height;
+        bool windowIsFloating = glfwGetWindowAttrib(window, GLFW_TRANSPARENT_FRAMEBUFFER);
+        glfwGetWindowSize(window, &width, &height);
+        glfwDestroyWindow(window);
+        preInitializeWindow();
+        if (windowIsFloating)
+        {
+            glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
+        }
+        else
+        {
+            glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+        }
+        glfwCreateWindow(width, height, "Acid Analyzer", NULL, NULL);
+        postInitializeWindow();
+    }
+    
     currentTime = glfwGetTime();
     if (currentTime - lastTime > 10.0)
     {
@@ -462,11 +549,17 @@ void finalizeFrame()
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
         glfwGetWindowPos(window, &w_posx, &w_posy);
-        glfwSetWindowPos(window, w_posx + offset_cpx, w_posy + offset_cpy);
+        int64_t new_w_posx = w_posx + offset_cpx;
+        int64_t new_w_posy = w_posy + offset_cpy;
+        glfwSetWindowPos(window, new_w_posx, new_w_posy);
+        int32_t actual_w_posx, actual_w_posy;
+        glfwGetWindowPos(window, &actual_w_posx, &actual_w_posy);
+        if (offset_cpx != 0) errorX = new_w_posx - actual_w_posx;
+        if (offset_cpy != 0) errorY = actual_w_posy - new_w_posy;
         offset_cpx = 0;
         offset_cpy = 0;
-        cp_x += offset_cpx;
-        cp_y += offset_cpy;
+        // cp_x += offset_cpx;
+        // cp_y += offset_cpy;
     }
     
     // glfwTerminate();

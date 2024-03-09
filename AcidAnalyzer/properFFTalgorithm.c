@@ -169,9 +169,15 @@ void* threadFunction(void* arg)
 
     double *audio = (double*) malloc(sizeof(double) * global.FFTsize);
     
-    printw("initialized FFT thread\n");
-    refresh();
-    
+    if (global.usingNcurses)
+    {
+        printw("initialized FFT thread\n");
+        refresh();
+    }
+    else
+    {
+        printf("initialized FFT thread\n");
+    }
     
     if (global.usingGlfw)
     {
@@ -235,39 +241,39 @@ void* threadFunction(void* arg)
             for (int64_t channel = 0; channel < global.channels; channel++)
             {
                 readChunkFromBuffer(&global.allBuffer, (uint8_t*)audio, channel);
-	            multiplyArrays(audio, windowingArray, real_in, global.FFTsize);  // windowing
-	            fftw_execute(thePlan);
-	            multiplyArrays((double*)complex_out, (double*)complex_out, (double*)complexPower, global.FFTsize);  // these two steps turn co complex numbers
-	            complexPowerToRealPower(complexPower, realPower, global.FFTsize / 2);  // into the power of the lenght of ampltude
-	            zeroSmallBins(realPower, global.FFTsize / 2, 1.0 / (pow(10, global.dynamicRange + 0.3)));
-	            powTwoBands(realPower, bands_out, global.numBars, startingPoint, ratio);
-	            logBands(bands_out, log10_bands, global.numBars, startingPoint, ratio);
-	            normalizeLogBands(log10_bands, global.numBars, global.dynamicRange);
-	            color_set(1, NULL);
-	            if (global.channels == 2 && channel == 1)
-	            {
-	                if (global.usingGlfw)
-	                {
-	                    glfwSpectrum(log10_bands, global.numBars, 1.0, global.channels, channel, false, true, 0.2);
-	                }
-	                if (global.usingNcurses)
-	                {
-	                    drawSpectrum(log10_bands, global.numBars, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, false);
-	                }
-	            }
-	            else
-	            {
-	                if (global.usingGlfw)
-	                {
-	                    glfwSpectrum(log10_bands, global.numBars, 1.0, global.channels, channel, true, true, 0.2);
-	                }
-	                if (global.usingNcurses)
-	                {
-	                    drawSpectrum(log10_bands, global.numBars, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, true);
-	                }
-	            }
-	            
-	            // printw("%d", global.channels);
+                multiplyArrays(audio, windowingArray, real_in, global.FFTsize);  // windowing
+                fftw_execute(thePlan);
+                multiplyArrays((double*)complex_out, (double*)complex_out, (double*)complexPower, global.FFTsize);  // these two steps turn co complex numbers
+                complexPowerToRealPower(complexPower, realPower, global.FFTsize / 2);  // into the power of the lenght of ampltude
+                zeroSmallBins(realPower, global.FFTsize / 2, 1.0 / (pow(10, global.dynamicRange + 0.3)));
+                powTwoBands(realPower, bands_out, global.numBars, startingPoint, ratio);
+                logBands(bands_out, log10_bands, global.numBars, startingPoint, ratio);
+                normalizeLogBands(log10_bands, global.numBars, global.dynamicRange);
+                color_set(1, NULL);
+                if (global.channels == 2 && channel == 1)
+                {
+                    if (global.usingGlfw)
+                    {
+                        glfwSpectrum(log10_bands, global.numBars, 1.0, global.channels, channel, false, true);
+                    }
+                    if (global.usingNcurses)
+                    {
+                        drawSpectrum(log10_bands, global.numBars, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, false);
+                    }
+                }
+                else
+                {
+                    if (global.usingGlfw)
+                    {
+                        glfwSpectrum(log10_bands, global.numBars, 1.0, global.channels, channel, true, true);
+                    }
+                    if (global.usingNcurses)
+                    {
+                        drawSpectrum(log10_bands, global.numBars, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, true);
+                    }
+                }
+                
+                // printw("%d", global.channels);
                 // refresh();
             }
             
@@ -277,14 +283,21 @@ void* threadFunction(void* arg)
             {
                 uint64_t printDebug_delta_ns = new_ns - printDebug_ns;
                 double actualFPS = (double)frameNumber / (double)printDebug_delta_ns * 1000000000;
-                move(w.ws_row - 1, 0);
-                color_set(3, NULL);
-                printw("fps = %6f, sample rate = %d, FFTsize = %d, threads = %d, ratio = %f, bars = %d ", actualFPS, global.sampleRate, global.FFTsize, global.threads, ratio, global.numBars);
+                if (global.usingNcurses)
+                {
+                    move(w.ws_row - 1, 0);
+                    color_set(3, NULL);
+                    printw("fps = %6f, sample rate = %d, FFTsize = %d, threads = %d, ratio = %f, bars = %d ", actualFPS, global.sampleRate, global.FFTsize, global.threads, ratio, global.numBars);
+                }
+                else
+                {
+                    printf("fps = %6f, sample rate = %d, FFTsize = %d, threads = %d, ratio = %f, bars = %d \n", actualFPS, global.sampleRate, global.FFTsize, global.threads, ratio, global.numBars);
+                }
                 printDebug_ns = new_ns;
                 frameNumber = 0;
             }
             
-            refresh();
+            if (global.usingNcurses) refresh();
             if (global.usingGlfw) finalizeFrame();
             
             int64_t c = getch();

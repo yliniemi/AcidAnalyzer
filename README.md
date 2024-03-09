@@ -59,6 +59,10 @@ You can close the program either by pressing ESC or Q
 M toggles the visibility of the mouse
 F toggles the full screen
 B toggles the borderless window
+T toggles the window being always on the top
+C toggles transparency (clear)
+UP and DOWN change the size of the whole circle
+LEFT and RIGHT change the size of the inner circle (you can make the circle inverted if you grow the inner circle bigger than the outer one)
 
 
 

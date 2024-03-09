@@ -161,8 +161,15 @@ void on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *par
             global.channels = data->format.info.raw.channels;
             initializeBufferWithChunksSize(&global.allBuffer, global.channels, global.bufferExtra, sizeof(double), global.FFTsize);
             global.allBuffer.partialRead = true;
-            printw("initialized the buffer with %d size and %d channels", global.allBuffer.size, global.channels);
-            refresh();
+            if (global.usingNcurses)
+            {
+                printw("initialized the buffer with %d size and %d channels", global.allBuffer.size, global.channels);
+                refresh();
+            }
+            else
+            {
+                printf("initialized the buffer with %d size and %d channels\n", global.allBuffer.size, global.channels);
+            }
         }
         
         
@@ -200,49 +207,49 @@ void parseArguments(int64_t argc, char *argv[])
         {
             replaceChar(argv[i + 1], ',', '.');
             global.fps = strtod(argv[i + 1], NULL);
-            printw("fps = %f\n", global.fps);
+            printf("fps = %f\n", global.fps);
         }
         if (strcmp(argv[i], "--FFTsize") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.FFTsize = strtol(argv[i + 1], NULL, 10);
-            printw("FFTsize = %d\n", global.FFTsize);
+            printf("FFTsize = %d\n", global.FFTsize);
         }
         if (strcmp(argv[i], "--dynamicRange") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.dynamicRange = strtod(argv[i + 1], NULL) / 10.0;  // conversion from Bel to deciBel
-            printw("dynamicRange = %f\n", global.dynamicRange);
+            printf("dynamicRange = %f\n", global.dynamicRange);
         }
         if (strcmp(argv[i], "--kaiserBeta") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.kaiserBeta = strtod(argv[i + 1], NULL);
-            printw("kaiserBeta = %f\n", global.kaiserBeta);
+            printf("kaiserBeta = %f\n", global.kaiserBeta);
         }
         if (strcmp(argv[i], "--bufferExtra") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.bufferExtra = strtol(argv[i + 1], NULL, 10);
-            printw("bufferExtra = %d\n", global.bufferExtra);
+            printf("bufferExtra = %d\n", global.bufferExtra);
         }
         if (strcmp(argv[i], "--minFrequency") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.minFrequency = strtod(argv[i + 1], NULL);
-            printw("minFrequency = %f\n", global.minFrequency);
+            printf("minFrequency = %f\n", global.minFrequency);
         }
         if (strcmp(argv[i], "--maxFrequency") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.maxFrequency = strtod(argv[i + 1], NULL);
-            printw("maxFrequency = %f\n", global.maxFrequency);
+            printf("maxFrequency = %f\n", global.maxFrequency);
         }
         if (strcmp(argv[i], "--bars") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.numBars = strtol(argv[i + 1], NULL, 10);
-            printw("numBars = %d\n", global.numBars);
+            printf("numBars = %d\n", global.numBars);
         }
         if (strcmp(argv[i], "--colors0") == 0)
         {
@@ -251,7 +258,7 @@ void parseArguments(int64_t argc, char *argv[])
                 replaceChar(argv[i + 1 + j], ',', '.');
                 global.colors[0][j] = strtol(argv[i + 1 + j], NULL, 10);
             }
-            printw("colors[0] = {%d, %d, %d}\n", global.colors[0][0], global.colors[0][1], global.colors[0][2]);
+            printf("colors[0] = {%d, %d, %d}\n", global.colors[0][0], global.colors[0][1], global.colors[0][2]);
         }
         if (strcmp(argv[i], "--colors1") == 0)
         {
@@ -260,7 +267,7 @@ void parseArguments(int64_t argc, char *argv[])
                 replaceChar(argv[i + 1 + j], ',', '.');
                 global.colors[1][j] = strtol(argv[i + 1 + j], NULL, 10);
             }
-            printw("colors[1] = {%d, %d, %d}\n", global.colors[1][0], global.colors[1][1], global.colors[1][2]);
+            printf("colors[1] = {%d, %d, %d}\n", global.colors[1][0], global.colors[1][1], global.colors[1][2]);
         }
         if (strcmp(argv[i], "--ncurses") == 0)
         {
@@ -272,7 +279,7 @@ void parseArguments(int64_t argc, char *argv[])
             {
                 global.usingNcurses = true;
             }
-            printw("usingNcurses = %s\n", global.usingNcurses ? "true" : "false");
+            printf("usingNcurses = %s\n", global.usingNcurses ? "true" : "false");
         }
         if (strcmp(argv[i], "--glfw") == 0)
         {
@@ -284,7 +291,7 @@ void parseArguments(int64_t argc, char *argv[])
             {
                 global.usingGlfw = true;
             }
-            printw("usingGlfw = %s\n", global.usingGlfw ? "true" : "false");
+            printf("usingGlfw = %s\n", global.usingGlfw ? "true" : "false");
         }
     }
 }
@@ -352,48 +359,41 @@ int main(int argc, char *argv[])
             global.colors[i][j] = defaultColors[i][j];
         }
     }
-    double colorR, colorG, colorB;
-    printf("\033]0;Acid Analyzer\007");
-    setlocale(LC_ALL, "");
-    setlocale(LC_NUMERIC, "en_GB.UTF-8");
-    initscr();
-    noecho();
-    timeout(0);
-    
-    curs_set(0);
-    start_color();
-    srand(time(NULL));
-    // HSLtoRGB((double)rand() / RAND_MAX, 1.0, 0.5, &colorR, &colorG, &colorB);
-    // mvprintw(1, 0, "%lf, %lf, %lf", colorR, colorG, colorB);
-    // benchmarkShit();
-    printw("program started \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588\n");
+    printf("\033]0;\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588 Acid Analyzer \u2588\u2587\u2586\u2585\u2584\u2583\u2582\u2581\007");
     
     parseArguments(argc, argv);
-    
-    refresh();
-    // nanosleep(&(struct timespec){.tv_sec = 10}, NULL);
-    // init_color(COLOR_WHITE, 900, 0, 0);
-    // init_color(COLOR_BLACK, 0, 0, 0);
-    // init_pair(1, COLOR_WHITE, COLOR_BLACK);
-    // init_pair(1, 1 + rand() % 15, COLOR_BLACK);
-    
-    // init_color(COLOR_BLUE, COLOR0);
-    // init_color(COLOR_CYAN, COLOR1);
-    
-    init_color(COLOR_BLUE, global.colors[0][0], global.colors[0][1], global.colors[0][2]);
-    init_color(COLOR_CYAN, global.colors[1][0], global.colors[1][1], global.colors[1][2]);
-    
-    init_pair(1, COLOR_BLUE, COLOR_BLACK);
-    init_pair(2, COLOR_BLACK, COLOR_CYAN);
-    init_pair(3, COLOR_WHITE, COLOR_BLACK);
-    color_set(3, NULL);
-    printw("colors loaded\n");
-    refresh();
-    // attron(COLOR_PAIR(1));
-    
-    // fprintf(stdout, "sizeof(fftw_complex) = %d\n", sizeof(fftw_complex));
-
-    /* and wait while we let things run */
+    if (argc > 1) sleep(3);
+    srand(time(NULL));
+    if (global.usingNcurses)
+    {
+        setlocale(LC_ALL, "");
+        setlocale(LC_NUMERIC, "en_GB.UTF-8");
+        initscr();
+        
+        noecho();
+        timeout(0);
+        
+        curs_set(0);
+        start_color();
+        printw("program started \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588\n");
+        
+        refresh();
+        
+        init_color(COLOR_BLUE, global.colors[0][0], global.colors[0][1], global.colors[0][2]);
+        init_color(COLOR_CYAN, global.colors[1][0], global.colors[1][1], global.colors[1][2]);
+        
+        init_pair(1, COLOR_BLUE, COLOR_BLACK);
+        init_pair(2, COLOR_BLACK, COLOR_CYAN);
+        init_pair(3, COLOR_WHITE, COLOR_BLACK);
+        color_set(3, NULL);
+        printw("colors loaded\n");
+        refresh();
+        // attron(COLOR_PAIR(1));
+        
+        // fprintf(stdout, "sizeof(fftw_complex) = %d\n", sizeof(fftw_complex));
+        
+        /* and wait while we let things run */
+    }
     pthread_create(&readStuff, NULL, threadFunction, NULL);
     // initializeGlfw();
     sleep(1);
@@ -465,8 +465,15 @@ int main(int argc, char *argv[])
                       PW_STREAM_FLAG_RT_PROCESS,
                       params, 1);
     
-    printw("initialized audio capture\n");
-    refresh();
+    if (global.usingNcurses)
+    {
+        printw("initialized audio capture\n");
+        refresh();
+    }
+    else
+    {
+        printf("initialized audio capture\n");
+    }
     
     pw_main_loop_run(data.loop);
     
