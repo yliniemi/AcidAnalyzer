@@ -205,6 +205,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 rigthCos = properCos(rigth / 4 + tilt) * xRatio;
                 rigthSin = properSin(rigth / 4 + tilt) * yRatio;
             }
+            /*
             glBegin(GL_QUADS);
             glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
             glVertex2f(rigthCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rigthSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
@@ -213,6 +214,31 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
             glVertex2f(rigthCos * emptyCircleRatio + offsetX, rigthSin * emptyCircleRatio + offsetY);
             glVertex2f(leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY);
             glEnd();
+            */
+            
+            float vertices[6 * 4] =
+            {
+                leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
+                rigthCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rigthSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
+                leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY,
+                rigthCos * emptyCircleRatio + offsetX, rigthSin * emptyCircleRatio + offsetY
+            };
+            GLfloat colors[] =
+            {
+                rgb.R, rgb.G, rgb.B, // red
+                rgb.R, rgb.G, rgb.B, // green
+                rgb.R, rgb.G, rgb.B, // blue
+                rgb.R, rgb.G, rgb.B, // yellow
+            };
+            GLubyte indices[] = {0,1,2, // first triangle (bottom left - top left - top right)
+                     1,2,3}; // second triangle (bottom left - top right - bottom right)
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+            
+            glEnableClientState(GL_VERTEX_ARRAY);
+            glEnableClientState(GL_COLOR_ARRAY);
+            
+            glVertexPointer(2, GL_FLOAT, 0, vertices);
+            glColorPointer(3, GL_FLOAT, 0, colors);
         }
         else
         {
@@ -379,8 +405,16 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods){
 
 void preInitializeWindow()
 {
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    /*
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    */
+    
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
     // glfwWindowHint(GLFW_SAMPLES, 16);
     // glfwWindowHint(GLFW_DEPTH_BITS, 16);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
@@ -407,6 +441,21 @@ void postInitializeWindow()
     glfwSetCursorPosCallback(window, cursorPositionCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetWindowCloseCallback(window, windowCloseCallback);
+    
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    // glOrtho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f); // left, right, bottom, top, near, far
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    // tell GL to only draw onto a pixel if the shape is closer to the viewer
+    glEnable(GL_DEPTH_TEST); // enable depth-testing
+    glDepthFunc(GL_LESS); // depth-testing interprets a smaller value as "closer"
+    
+    const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
+    const GLubyte* version = glGetString(GL_VERSION); // version as a string
+    printf("Renderer: %s\n", renderer);
+    printf("OpenGL version supported %s\n", version);
 }
 
 void initializeGlfw()

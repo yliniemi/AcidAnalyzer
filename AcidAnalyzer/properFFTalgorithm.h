@@ -42,5 +42,7 @@ double findRatio(int64_t maxDepth, double low, double high, double lowestValid, 
 
 // void logBands(double *bands, double *logBands, int64_t n_bands, int64_t startingPoint, double ratio);
 
+void startProperFFTalgorithm();
+
 void* threadFunction(void* arg);
 

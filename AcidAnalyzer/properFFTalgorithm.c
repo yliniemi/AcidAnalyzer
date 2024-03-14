@@ -31,10 +31,11 @@
 #include <sys/ioctl.h>
 #include <stdlib.h>
 
+#include <pthread.h>
+
 extern struct Global global;
 
-
-
+pthread_t readAudioBuffer;
 
 double substract_universal[6]  =
 { 4.432, 4.668, 4.754, 4.783, 4.789, 4.790 };   // this is here until I make changing KAISER_BETA dynamic. These are the values for KAISER_BETA = 5.0
@@ -164,7 +165,7 @@ void* threadFunction(void* arg)
     fftw_plan thePlan;
     fftw_init_threads();
     fftw_plan_with_nthreads(global.threads);
-    thePlan = fftw_plan_dft_r2c_1d(global.FFTsize, real_in, complex_out, FFTW_ESTIMATE);;
+    thePlan = fftw_plan_dft_r2c_1d(global.FFTsize, real_in, complex_out, FFTW_ESTIMATE);
     generateKaiserWindow(global.FFTsize, KAISER_BETA, windowingArray);
 
     double *audio = (double*) malloc(sizeof(double) * global.FFTsize);
@@ -322,5 +323,10 @@ void* threadFunction(void* arg)
         skip:;
         
     }
+}
+
+void startProperFFTalgorithm()
+{
+    pthread_create(&readAudioBuffer, NULL, threadFunction, NULL);
 }
 
