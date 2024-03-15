@@ -15,7 +15,7 @@
 
 #include <nanoTime.h>
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 #include <time.h>
 #endif
 
@@ -31,7 +31,7 @@
 
 int64_t nanoTime()
 {
-    #ifdef __linux__
+    #if defined(__linux__) || defined(__APPLE__)
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
     return ts.tv_sec * 1000000000 + ts.tv_nsec;
@@ -44,7 +44,7 @@ int64_t nanoTime()
 
 int64_t nanoSleepUniversal(int64_t nanoSeconds)
 {
-    #ifdef __linux__
+    #if defined(__linux__) || defined(__APPLE__)
     struct timespec requested = {nanoSeconds / 1000000000, nanoSeconds % 1000000000};
     struct timespec remaining;
     nanosleep(&requested, &remaining);

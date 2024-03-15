@@ -6,7 +6,7 @@
 #define PI 3.14159265358979323846264338328
 #endif
 
-
+#include <ringBuffer.h>
 
 #define NUMBER_OF_FFT_SAMPLES 6144  // 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608. Must be a power of two. Otherwise it will be substantially slower. 4096 and 8192 are great for fast paced music. 16384 might be great for ambient or some other music that changes slowly. anything more than that is just for testing my algorithm. The ability to analyze 10 seconds worth of data 120 times a second isn't very usefull but can be a nice way to test the efficiency of my algorithm.
 #define KAISER_BETA 6.0 * PI             // bigger number means wider mainlobes but the side lobes will be lower. 5.0 is a nice compromise between those two for music.
@@ -21,6 +21,7 @@
 #define USING_NCURSES false
 #define USING_GLFW true
 #define NUM_BARS 320
+// #define DUMMY_NOISE
 
 struct Global
 {
@@ -39,5 +40,35 @@ struct Global
     bool usingGlfw;
     int64_t numBars;
     int64_t colors[2][3];
+    int64_t openglVersion;
+    bool dummyNoise;
 };
+
+extern struct Global global;
+
+#ifdef MAIN
+
+struct Global global;
+    
+void setGobalDefaults()
+{
+    global.sampleRate = 1;
+    global.channels = 1;
+    global.fps = FPS;
+    global.FFTsize = NUMBER_OF_FFT_SAMPLES;
+    global.threads = sysconf(_SC_NPROCESSORS_ONLN);
+    global.dynamicRange = DYNAMIC_RANGE;
+    global.kaiserBeta = KAISER_BETA;
+    global.bufferExtra = BUFFER_EXTRA;
+    global.minFrequency = MIN_FREQUENCY;
+    global.maxFrequency = MAX_FREQUENCY;
+    global.usingNcurses = USING_NCURSES;
+    global.usingGlfw = USING_GLFW;
+    global.numBars = NUM_BARS;
+    global.openglVersion = 3;
+    global.dummyNoise = true;
+}
+
+#endif
+
 

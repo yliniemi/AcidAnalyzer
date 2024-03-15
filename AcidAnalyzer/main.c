@@ -30,8 +30,10 @@
 // #include <kaiser.h>
 #include <ringBuffer.h>
 #include <properFFTalgorithm.h>
+
+#ifndef DUMMY_NOISE
 #include <readPipewire.h>
-#include <defaults.h>
+#endif
 
 #include <locale.h>
 #include <wchar.h>
@@ -39,13 +41,14 @@
 
 #include <string.h>
 
-#include <time.h>
+// #include <time.h>
+#include <nanoTime.h>
+#include <dummyAudio.h>
 
 // #include <approxFunctions.h>
 
-
-extern struct Global global;
-struct Global global;
+#define MAIN
+#include <defaults.h>
 
 
 int64_t replaceChar(char *str, char orig, char rep) {
@@ -161,6 +164,8 @@ void parseArguments(int64_t argc, char *argv[])
 #ifndef THIS_IS_A_TEST
 int main(int argc, char *argv[])
 {
+    setGobalDefaults();
+    /*
     global.sampleRate = 1;
     global.channels = 1;
     global.fps = FPS;
@@ -174,6 +179,8 @@ int main(int argc, char *argv[])
     global.usingNcurses = USING_NCURSES;
     global.usingGlfw = USING_GLFW;
     global.numBars = NUM_BARS;
+    */
+    
     int64_t defaultColors[2][3] = {{COLOR0}, {COLOR1}};
     for (int64_t i = 0; i < 2; i++)
     {
@@ -186,7 +193,7 @@ int main(int argc, char *argv[])
     
     parseArguments(argc, argv);
     if (argc > 1 && global.usingNcurses) sleep(5);
-    srand(time(NULL));
+    srand(nanoTime());
     if (global.usingNcurses)
     {
         setlocale(LC_ALL, "");
@@ -224,7 +231,12 @@ int main(int argc, char *argv[])
     
     // pthread_create(&glfwThread, NULL, testGlfw, NULL);
     
+    #ifdef DUMMY_NOISE
+    startDummyAudio();
+    #else
     startPipewire(argc, argv);
+    #endif
+    
     return 0;
 }
 #endif

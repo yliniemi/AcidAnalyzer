@@ -28,6 +28,8 @@
 #define PI 3.14159265358979323846264338328
 #endif
 
+#include <defaults.h>
+extern struct Global global;
 
 struct OpenSimplex2F_context *simplexContext;
 
@@ -57,6 +59,11 @@ float properCos(float ratioAngle)
 double smoothStep(double x)
 {
    return x * x * (3.0 - 2.0 * x);
+}
+
+double lerp(double a, double b, double f) 
+{
+    return (a * (1.0 - f)) + (b * f);
 }
 
 double smootherStep(double x)
@@ -150,7 +157,7 @@ struct RGB HSVToRGB(struct HSV hsv)
 	return rgb;
 }
 
-void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool uprigth, bool isCircle)
+void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool upright, bool isCircle)
 {
     float biggestNoiseScale = 0.05;
     float smallestTimeScale = 0.00000000008;
@@ -158,7 +165,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
         + OpenSimplex2F_noise2(simplexContext, currentNanoTime * smallestTimeScale * 2, 10) * 0.5
         + OpenSimplex2F_noise2(simplexContext, currentNanoTime * smallestTimeScale * 4, 20) * 0.25) * biggestNoiseScale;
     float bottom;
-    if (!uprigth && !isCircle)
+    if (!upright && !isCircle)
     {
         glColor3f(0.8f, 0.8f, 0.8f);
         bottom = ((channel + 1) / (float)numChannels) * 2 - 1;
@@ -172,80 +179,101 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
     for (int64_t barIndex = 0; barIndex < numBars; barIndex++)
     {
         float barHeigth = soundArray[barIndex];
-        struct HSV hsv;
-        hsv.H = (smoothStep(barIndex / (float)(numBars - 1)) * 0.4 + barIndex / (float)(numBars - 1) * 0.6) * 0.666;
-        hsv.S = 1.0;
-        hsv.V = 1.0;
-        struct RGB rgb = HSVToRGB(hsv);
-        glColor3f(rgb.R, rgb.G, rgb.B);
+        float leftBarEdgeLocation = (barIndex + 0.5 - barWidth * 0.5) / (float)numBars;
+        float rightBarEdgeLocation = (barIndex + 0.5 + barWidth * 0.5) / (float)numBars;
+        struct RGB leftRgb = HSVToRGB(
+                (struct HSV){lerp(smoothStep(leftBarEdgeLocation), leftBarEdgeLocation, 0.6) * 0.666,
+                1,
+                1});
+        struct RGB rightRgb = HSVToRGB(
+                (struct HSV){lerp(smoothStep(rightBarEdgeLocation), rightBarEdgeLocation, 0.6) * 0.666,
+                1,
+                1});
+        // glColor3f(rgb.R, rgb.G, rgb.B);
         if (barHeigth < 0) barHeigth = 0;
         
-        float leftCandidate = (barIndex / (float)numBars) * 2 - 1;
-        float rigthCandidate = ((barIndex + 1) / (float)numBars) * 2 - 1;
-        float left = leftCandidate * (barWidth * 0.5 + 0.5) + rigthCandidate * (1 - (barWidth * 0.5 + 0.5));
-        float rigth = rigthCandidate * (barWidth * 0.5 + 0.5) + leftCandidate * (1 - (barWidth * 0.5 + 0.5));
+        float left = (barIndex + 0.5 - barWidth * 0.5) / (float)numBars * 2 - 1;
+        float right = (barIndex + 0.5 + barWidth * 0.5) / (float)numBars * 2 - 1;
         float top;
-        if (uprigth) top = bottom + barHeigth * 2 / numChannels;
+        if (upright) top = bottom + barHeigth * 2 / numChannels;
         else top = bottom - barHeigth * 2 / numChannels;
         
         if (isCircle && numChannels < 3)
         {
-            float leftCos, leftSin, rigthCos, rigthSin;
+            float leftCos, leftSin, rightCos, rightSin;
             if (channel == 0)
             {
-                leftCos = properCos(0.50 - left / 4 + tilt) * xRatio;
-                leftSin = properSin(0.50 - left / 4 + tilt) * yRatio;
-                rigthCos = properCos(0.50 - rigth / 4 + tilt) * xRatio;
-                rigthSin = properSin(0.50 - rigth / 4 + tilt) * yRatio;
+                leftCos = properCos(0.75 - leftBarEdgeLocation / 2 + tilt) * xRatio;
+                leftSin = properSin(0.75 - leftBarEdgeLocation / 2 + tilt) * yRatio;
+                rightCos = properCos(0.75 - rightBarEdgeLocation / 2 + tilt) * xRatio;
+                rightSin = properSin(0.75 - rightBarEdgeLocation / 2 + tilt) * yRatio;
             }
             else
             {
-                leftCos = properCos(left / 4 + tilt) * xRatio;
-                leftSin = properSin(left / 4 + tilt) * yRatio;
-                rigthCos = properCos(rigth / 4 + tilt) * xRatio;
-                rigthSin = properSin(rigth / 4 + tilt) * yRatio;
+                leftCos = properCos(0.75 + leftBarEdgeLocation / 2 + tilt) * xRatio;
+                leftSin = properSin(0.75 + leftBarEdgeLocation / 2 + tilt) * yRatio;
+                rightCos = properCos(0.75 + rightBarEdgeLocation / 2 + tilt) * xRatio;
+                rightSin = properSin(0.75 + rightBarEdgeLocation / 2 + tilt) * yRatio;
             }
             /*
             glBegin(GL_QUADS);
             glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
-            glVertex2f(rigthCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rigthSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
-            // glVertex2f(rigth, bottom);
+            glVertex2f(rightCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
+            // glVertex2f(right, bottom);
             // glVertex2f(left, bottom);
-            glVertex2f(rigthCos * emptyCircleRatio + offsetX, rigthSin * emptyCircleRatio + offsetY);
+            glVertex2f(rightCos * emptyCircleRatio + offsetX, rightSin * emptyCircleRatio + offsetY);
             glVertex2f(leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY);
             glEnd();
             */
             
-            float vertices[6 * 4] =
+            if (global.openglVersion < 3)
             {
-                leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
-                rigthCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rigthSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
-                leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY,
-                rigthCos * emptyCircleRatio + offsetX, rigthSin * emptyCircleRatio + offsetY
-            };
-            GLfloat colors[] =
+                glBegin(GL_QUADS);
+                glColor4f(rightRgb.R, rightRgb.G, rightRgb.B, 0);
+                glVertex2f(rightCos * emptyCircleRatio + offsetX, rightSin * emptyCircleRatio + offsetY);
+                glColor4f(leftRgb.R, leftRgb.G, leftRgb.B, 0);
+                glVertex2f(leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY);
+                // glColor4f(1,0,0, 0.5);
+                glColor4f(leftRgb.R, leftRgb.G, leftRgb.B, 1);
+                glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
+                glColor4f(rightRgb.R, rightRgb.G, rightRgb.B, 1);
+                glVertex2f(rightCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
+                glEnd();
+            }
+            else
             {
-                rgb.R, rgb.G, rgb.B, // red
-                rgb.R, rgb.G, rgb.B, // green
-                rgb.R, rgb.G, rgb.B, // blue
-                rgb.R, rgb.G, rgb.B, // yellow
-            };
-            GLubyte indices[] = {0,1,2, // first triangle (bottom left - top left - top right)
-                     1,2,3}; // second triangle (bottom left - top right - bottom right)
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+                float vertices[4 * 2] =
+                {
+                    leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
+                    rightCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
+                    leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY,
+                    rightCos * emptyCircleRatio + offsetX, rightSin * emptyCircleRatio + offsetY
+                };
+                GLfloat colors[] =
+                {
+                    leftRgb.R, leftRgb.G, leftRgb.B,
+                    rightRgb.R, rightRgb.G, rightRgb.B,
+                    leftRgb.R, leftRgb.G, leftRgb.B,
+                    rightRgb.R, rightRgb.G, rightRgb.B
+                };
             
-            glEnableClientState(GL_VERTEX_ARRAY);
-            glEnableClientState(GL_COLOR_ARRAY);
-            
-            glVertexPointer(2, GL_FLOAT, 0, vertices);
-            glColorPointer(3, GL_FLOAT, 0, colors);
+                GLubyte indices[] = {0,1,2, // first triangle (bottom left - top left - top right)
+                         1,2,3}; // second triangle (bottom left - top right - bottom right)
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+                
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_COLOR_ARRAY);
+                
+                glVertexPointer(2, GL_FLOAT, 0, vertices);
+                glColorPointer(3, GL_FLOAT, 0, colors);
+            }
         }
         else
         {
             glBegin(GL_QUADS);
             glVertex2f(left, top);
-            glVertex2f(rigth, top);
-            glVertex2f(rigth, bottom);
+            glVertex2f(right, top);
+            glVertex2f(right, bottom);
             glVertex2f(left, bottom);
             glEnd();
         }
