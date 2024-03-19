@@ -200,7 +200,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
         if (upright) top = bottom + barHeigth * 2 / numChannels;
         else top = bottom - barHeigth * 2 / numChannels;
         
-        if (isCircle && numChannels < 3)
+        if (global.barMode == CIRCLE && numChannels < 3)
         {
             float leftCos, leftSin, rightCos, rightSin;
             if (channel == 0)
@@ -270,7 +270,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 glColorPointer(3, GL_FLOAT, 0, colors);
             }
         }
-        else if (!isCircle && numChannels < 3)
+        else if (global.barMode == BAR && numChannels < 3)
         {
             double xSizeRatio = pow(1.01, xSizeInt);
             if (channel == 0)

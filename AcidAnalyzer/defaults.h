@@ -48,6 +48,11 @@ struct Global
     int64_t minBufferDepth;
     int64_t maxBufferDept;
     double barWidth;
+    enum
+    {
+        BAR,
+        CIRCLE
+    } barMode;
 };
 
 extern struct Global global;
@@ -79,6 +84,7 @@ void setGobalDefaults()
     global.minBufferDepth = 1000000000;
     global.maxBufferDept = 0;
     global.barWidth = 1.0;
+    global.barMode = BAR;
     
     int64_t defaultColors[2][3] = {{0, 0, 1000}, {300, 300, 1000}};
     for (int64_t i = 0; i < 2; i++)

@@ -95,6 +95,12 @@ void parseArguments(int64_t argc, char *argv[])
             global.bufferExtra = strtol(argv[i + 1], NULL, 10);
             printf("bufferExtra = %lld\n", global.bufferExtra);
         }
+        if (strcmp(argv[i], "--barMode") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.barMode = strtol(argv[i + 1], NULL, 10);
+            printf("barMode = %lld\n", global.barMode);
+        }
         if (strcmp(argv[i], "--minFrequency") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
