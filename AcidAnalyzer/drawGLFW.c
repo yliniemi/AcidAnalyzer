@@ -35,8 +35,9 @@ struct OpenSimplex2F_context *simplexContext;
 
 static int64_t currentNanoTime = 0;
 
-static double xRatio = 1;
-static double yRatio = 1;
+static double sizeRatio = 1.0;
+static double xRatio = 1.0;
+static double yRatio = 1.0;
 
 static double offsetX = 0.0;
 static double offsetY = 0.0;
@@ -44,6 +45,7 @@ static int64_t errorX = 0;
 static int64_t errorY = 0;
 
 static int64_t sizeInt = 0;
+static int64_t xSizeInt = 0;
 static double emptyCircleRatio = 0.2;
 
 float properSin(float ratioAngle)
@@ -268,6 +270,44 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 glColorPointer(3, GL_FLOAT, 0, colors);
             }
         }
+        else if (!isCircle && numChannels < 3)
+        {
+            double xSizeRatio = pow(1.01, xSizeInt);
+            if (channel == 0)
+            {
+                leftBarEdgeLocation *= -1 * xSizeRatio;
+                rightBarEdgeLocation *= -1 * xSizeRatio;
+            }
+            if (channel == 1)
+            {
+                leftBarEdgeLocation *= xSizeRatio;
+                rightBarEdgeLocation *= xSizeRatio;
+            }
+                float vertices[4 * 2] =
+                {
+                    leftBarEdgeLocation + offsetX, barHeigth * 2 * sizeRatio - 1 + offsetY,
+                    rightBarEdgeLocation + offsetX, barHeigth * 2 * sizeRatio - 1 + offsetY,
+                    leftBarEdgeLocation + offsetX, -1 + offsetY,
+                    rightBarEdgeLocation + offsetX, -1 + offsetY
+                };
+                GLfloat colors[] =
+                {
+                    leftRgb.R, leftRgb.G, leftRgb.B,
+                    rightRgb.R, rightRgb.G, rightRgb.B,
+                    leftRgb.R, leftRgb.G, leftRgb.B,
+                    rightRgb.R, rightRgb.G, rightRgb.B
+                };
+            
+                GLubyte indices[] = {0,1,2, // first triangle (bottom left - top left - top right)
+                         1,2,3}; // second triangle (bottom left - top right - bottom right)
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+                
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_COLOR_ARRAY);
+                
+                glVertexPointer(2, GL_FLOAT, 0, vertices);
+                glColorPointer(3, GL_FLOAT, 0, colors);
+        }
         else
         {
             glBegin(GL_QUADS);
@@ -288,8 +328,8 @@ static void update_window_title(GLFWwindow* window)
 {
     char title[256];
 
-    snprintf(title, sizeof(title), "Acid Analyzer %0.01f fps",
-             frameRate);
+    snprintf(title, sizeof(title), "Acid Analyzer %.2f fps, rafresh rate %.2f",
+             frameRate, global.fps);
 
     glfwSetWindowTitle(window, title);
 }
@@ -336,6 +376,7 @@ void toggleFullscreen(GLFWwindow* window)
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);
         
         glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+        global.fps = mode->refreshRate;
     }
     else
     {
@@ -346,7 +387,7 @@ void toggleFullscreen(GLFWwindow* window)
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS)
     {
-        if (key == GLFW_KEY_ESCAPE || key == GLFW_KEY_Q)
+        if (key == GLFW_KEY_Q)
         {
             windowCloseCallback(window);
         }
@@ -362,6 +403,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             }
         }
         if (key == GLFW_KEY_F)
+        {
+            toggleFullscreen(window);
+        }
+        if (key == GLFW_KEY_ESCAPE && (glfwGetWindowMonitor(window) != NULL))
         {
             toggleFullscreen(window);
         }
@@ -386,6 +431,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             {
                 emptyCircleRatio *= 1.01;
             }
+            xSizeInt++;
         }
         if (key == GLFW_KEY_LEFT)
         {
@@ -397,6 +443,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             {
                 emptyCircleRatio *= 0.99;
             }
+            xSizeInt--;
         }
     }
 }
@@ -429,6 +476,14 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods){
         cp_x = 0;
         cp_y = 0;
     }
+}
+
+double getRefreshRate()
+{
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    
+    return mode->refreshRate;
 }
 
 void preInitializeWindow()
@@ -535,7 +590,7 @@ void startFrame()
         yRatio = 1;
     }
     
-    double sizeRatio = pow(1.01, sizeInt);
+    sizeRatio = pow(1.01, sizeInt);
     xRatio *= sizeRatio;
     yRatio *= sizeRatio;
     
@@ -620,6 +675,7 @@ void finalizeFrame()
         frameRate = frameCount / (currentTime - lastTime);
         frameCount = 0;
         lastTime = currentTime;
+        global.fps = getRefreshRate();
         update_window_title(window);
     }
     

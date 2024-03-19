@@ -16,7 +16,7 @@
 #define COLOR0 0, 0, 1000
 #define COLOR1 300, 300, 1000
 #define BUFFER_EXTRA 2 * 48000
-#define MIN_FREQUENCY 20
+#define MIN_FREQUENCY 0
 #define MAX_FREQUENCY 20000
 #define USING_NCURSES false
 #define USING_GLFW true
@@ -30,7 +30,7 @@ struct Global
     int64_t channels;
     double fps;
     int64_t FFTsize;
-    int64_t threads;
+    int64_t threadsPerChannel;
     double kaiserBeta;
     double dynamicRange;
     int64_t bufferExtra;
@@ -42,6 +42,12 @@ struct Global
     int64_t colors[2][3];
     int64_t openglVersion;
     bool dummyNoise;
+    int64_t mostCapturedSamples;
+    int64_t leastReadSamples;
+    int64_t mostReadSamples;
+    int64_t minBufferDepth;
+    int64_t maxBufferDept;
+    double barWidth;
 };
 
 extern struct Global global;
@@ -54,19 +60,34 @@ void setGobalDefaults()
 {
     global.sampleRate = 1;
     global.channels = 1;
-    global.fps = FPS;
-    global.FFTsize = NUMBER_OF_FFT_SAMPLES;
-    global.threads = sysconf(_SC_NPROCESSORS_ONLN);
-    global.dynamicRange = DYNAMIC_RANGE;
-    global.kaiserBeta = KAISER_BETA;
-    global.bufferExtra = BUFFER_EXTRA;
-    global.minFrequency = MIN_FREQUENCY;
-    global.maxFrequency = MAX_FREQUENCY;
-    global.usingNcurses = USING_NCURSES;
-    global.usingGlfw = USING_GLFW;
-    global.numBars = NUM_BARS;
+    global.fps = 120;
+    global.FFTsize = 6144;
+    global.threadsPerChannel = 1;
+    global.dynamicRange = 5.5;      // Bels, not desiBels
+    global.kaiserBeta = 6.0 * PI;
+    global.bufferExtra = 2 * 48000;
+    global.minFrequency = 20;
+    global.maxFrequency = 20000;
+    global.usingNcurses = false;
+    global.usingGlfw = true;
+    global.numBars = 320;
     global.openglVersion = 3;
     global.dummyNoise = true;
+    global.mostCapturedSamples = 0;
+    global.leastReadSamples = 1000000000;
+    global.mostReadSamples = 0;
+    global.minBufferDepth = 1000000000;
+    global.maxBufferDept = 0;
+    global.barWidth = 1.0;
+    
+    int64_t defaultColors[2][3] = {{0, 0, 1000}, {300, 300, 1000}};
+    for (int64_t i = 0; i < 2; i++)
+    {
+        for (int64_t j = 0; j < 3; j++)
+        {
+            global.colors[i][j] = defaultColors[i][j];
+        }
+    }
 }
 
 #endif

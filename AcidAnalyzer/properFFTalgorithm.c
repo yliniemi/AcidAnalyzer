@@ -164,7 +164,7 @@ void* threadFunction(void* arg)
     double *log10_bands = (double*) malloc(sizeof(double) * global.FFTsize);
     fftw_plan thePlan;
     fftw_init_threads();
-    fftw_plan_with_nthreads(global.threads);
+    fftw_plan_with_nthreads(global.threadsPerChannel);
     thePlan = fftw_plan_dft_r2c_1d(global.FFTsize, real_in, complex_out, FFTW_ESTIMATE);
     generateKaiserWindow(global.FFTsize, KAISER_BETA, windowingArray);
 
@@ -200,6 +200,14 @@ void* threadFunction(void* arg)
             bool updatedSomething = false;
             
             static int64_t oldNumBars = -1;
+            
+            // if (global.usingGlfw) global.fps = getRefreshRate();
+            
+            static int64_t old_ns = 0;
+            int64_t new_ns = nanoTime();
+            if (new_ns - old_ns < 995000000 / global.fps) new_ns = old_ns + 995000000 / global.fps;
+            int64_t delta_ns = new_ns - old_ns;
+            
             if (global.usingNcurses) global.numBars = w.ws_col;
             
             if (global.numBars != oldNumBars || global.sampleRate != oldSampleRate)
@@ -207,16 +215,17 @@ void* threadFunction(void* arg)
                 if (global.sampleRate != oldSampleRate) increaseBufferReadIndex(&global.allBuffer, 1000000000000);
                 oldSampleRate = global.sampleRate;
                 oldNumBars = global.numBars;
-                startingPoint = max(global.minFrequency * global.FFTsize / global.sampleRate + 1, 3);
+                startingPoint = max(global.minFrequency * global.FFTsize / global.sampleRate + 0, 1);
                 int64_t n_bins = min(global.FFTsize / 2, global.maxFrequency * global.FFTsize / global.sampleRate);
                 /*
-                printw("\nstartingPoint = %lld, bins = %lld, columns = %d", startingPoint, n_bins, global.numBars);
+                printw("\nstartingPoint = %lld, bins = %lld, columns = %lld", startingPoint, n_bins, global.numBars);
                 refresh();
                 struct timespec rem;
                 struct timespec req = {30, 0};
                 nanosleep(&req, &rem);
                 */
                 ratio = findRatio(60, 0, 1, 0, startingPoint, n_bins, global.numBars);
+                if (n_bins - startingPoint < global.numBars) global.numBars = n_bins - startingPoint;
                 updatedSomething = true;
             }
             if (w.ws_row != windowRows)
@@ -224,17 +233,33 @@ void* threadFunction(void* arg)
                 windowRows = w.ws_row;
                 updatedSomething = true;
             }
-            static int64_t old_ns = 0;
-            int64_t new_ns = nanoTime();
-            int64_t delta_ns = new_ns - old_ns;
-
-            int64_t newSamples = global.sampleRate * delta_ns / 999000000 + 1;
+            
+            // static double newSamplesRemainder = 0;
+            double bufferDepth = getBufferReadSpace(&global.allBuffer);
+            double slope = lerp(1.005, 1.05, (bufferDepth - 2 * (double)global.sampleRate / (global.fps - 1)) / (double)global.sampleRate);
+            if (bufferDepth < 2 * global.sampleRate / (global.fps - 1)) slope = 1.005;
+            static double remainder = 0;
+            double newSamples = ((double)global.sampleRate * delta_ns) / 1000000000.0 * slope + 1 + remainder;
+            remainder = newSamples - (int64_t)newSamples;
+            // if (newSamples < global.leastReadSamples) global.leastReadSamples = newSamples;
+            double samplesAfterReading = bufferDepth - newSamples;
+            if (samplesAfterReading < global.sampleRate / global.fps)
+            {
+                newSamples = newSamples * lerp(0.9, 1.0, samplesAfterReading / (double)global.sampleRate * global.fps);
+            }
+            // newSamplesRemainder = newSamples - floor(newSamples);
             int64_t readSamples = increaseBufferReadIndex(&global.allBuffer, newSamples);
             if (readSamples <= 0)
             {
+                old_ns = new_ns;
                 nanoSleepUniversal(1000000);
                 goto skip;
             }
+            if (readSamples < global.leastReadSamples) global.leastReadSamples = readSamples;
+            if (readSamples > global.mostReadSamples) global.mostReadSamples = readSamples;
+            bufferDepth = getBufferReadSpace(&global.allBuffer);
+            if (bufferDepth < global.minBufferDepth) global.minBufferDepth = bufferDepth;
+            if (bufferDepth > global.maxBufferDept) global.maxBufferDept = bufferDepth;
             // printw("s");
             frameNumber++;
             if (global.usingGlfw) startFrame();
@@ -255,7 +280,7 @@ void* threadFunction(void* arg)
                 {
                     if (global.usingGlfw)
                     {
-                        glfwSpectrum(log10_bands, global.numBars, 1.0, global.channels, channel, false, true);
+                        glfwSpectrum(log10_bands, global.numBars, global.barWidth, global.channels, channel, false, false);
                     }
                     if (global.usingNcurses)
                     {
@@ -266,21 +291,20 @@ void* threadFunction(void* arg)
                 {
                     if (global.usingGlfw)
                     {
-                        glfwSpectrum(log10_bands, global.numBars, 1.0, global.channels, channel, true, true);
+                        glfwSpectrum(log10_bands, global.numBars, global.barWidth, global.channels, channel, true, false);
                     }
                     if (global.usingNcurses)
                     {
                         drawSpectrum(log10_bands, global.numBars, max(w.ws_row, 3) / global.channels, max(w.ws_row, 3) / global.channels * channel, true);
                     }
                 }
-                
-                // printw("%d", global.channels);
+                // printw("%lld", global.channels);
                 // refresh();
             }
             
             
             static uint64_t printDebug_ns = 0;
-            if ((w.ws_row % global.channels != 0 && (printDebug_ns + 10000000000 < new_ns)) || updatedSomething == true)
+            if ((printDebug_ns + 10000000000 < new_ns) || updatedSomething == true)
             {
                 uint64_t printDebug_delta_ns = new_ns - printDebug_ns;
                 double actualFPS = (double)frameNumber / (double)printDebug_delta_ns * 1000000000;
@@ -288,14 +312,19 @@ void* threadFunction(void* arg)
                 {
                     move(w.ws_row - 1, 0);
                     color_set(3, NULL);
-                    printw("fps = %6f, sample rate = %d, FFTsize = %d, threads = %d, ratio = %f, bars = %d ", actualFPS, global.sampleRate, global.FFTsize, global.threads, ratio, global.numBars);
+                    printw("fps = %.2f, sample rate = %lld, FFT = %lld, threads = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, global.threadsPerChannel, ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
                 }
                 else
                 {
-                    printf("fps = %6f, sample rate = %d, FFTsize = %d, threads = %d, ratio = %f, bars = %d \n", actualFPS, global.sampleRate, global.FFTsize, global.threads, ratio, global.numBars);
+                    printf("fps = %.2f, sample rate = %lld, FFT = %lld, threads = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, global.threadsPerChannel, ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
                 }
                 printDebug_ns = new_ns;
                 frameNumber = 0;
+                global.leastReadSamples = 1000000000;
+                global.mostReadSamples = 0;
+                global.minBufferDepth = 1000000000;
+                global.maxBufferDept = 0;
+                global.mostCapturedSamples = 0;
             }
             
             if (global.usingNcurses) refresh();
@@ -317,11 +346,9 @@ void* threadFunction(void* arg)
             int64_t delta_ns = new_ns - old_ns;
             int64_t sleepThisLong = max(interval - (int)delta_ns, 0);
             int64_t remainingSleep = nanoSleepUniversal(sleepThisLong);
+            skip:;
             old_ns = nanoTime();
         }
-        
-        skip:;
-        
     }
 }
 

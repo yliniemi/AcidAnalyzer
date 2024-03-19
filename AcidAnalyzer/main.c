@@ -31,6 +31,9 @@
 #include <ringBuffer.h>
 #include <properFFTalgorithm.h>
 
+#define MAIN
+#include <defaults.h>
+
 #ifndef DUMMY_NOISE
 #include <readPipewire.h>
 #endif
@@ -46,9 +49,6 @@
 #include <dummyAudio.h>
 
 // #include <approxFunctions.h>
-
-#define MAIN
-#include <defaults.h>
 
 
 int64_t replaceChar(char *str, char orig, char rep) {
@@ -75,7 +75,7 @@ void parseArguments(int64_t argc, char *argv[])
         {
             replaceChar(argv[i + 1], ',', '.');
             global.FFTsize = strtol(argv[i + 1], NULL, 10);
-            printf("FFTsize = %d\n", global.FFTsize);
+            printf("FFTsize = %lld\n", global.FFTsize);
         }
         if (strcmp(argv[i], "--dynamicRange") == 0)
         {
@@ -93,13 +93,19 @@ void parseArguments(int64_t argc, char *argv[])
         {
             replaceChar(argv[i + 1], ',', '.');
             global.bufferExtra = strtol(argv[i + 1], NULL, 10);
-            printf("bufferExtra = %d\n", global.bufferExtra);
+            printf("bufferExtra = %lld\n", global.bufferExtra);
         }
         if (strcmp(argv[i], "--minFrequency") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.minFrequency = strtod(argv[i + 1], NULL);
             printf("minFrequency = %f\n", global.minFrequency);
+        }
+        if (strcmp(argv[i], "--barWidth") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.barWidth = strtod(argv[i + 1], NULL);
+            printf("barWidth = %f\n", global.barWidth);
         }
         if (strcmp(argv[i], "--maxFrequency") == 0)
         {
@@ -111,7 +117,7 @@ void parseArguments(int64_t argc, char *argv[])
         {
             replaceChar(argv[i + 1], ',', '.');
             global.numBars = strtol(argv[i + 1], NULL, 10);
-            printf("numBars = %d\n", global.numBars);
+            printf("numBars = %lld\n", global.numBars);
         }
         if (strcmp(argv[i], "--colors0") == 0)
         {
@@ -120,7 +126,7 @@ void parseArguments(int64_t argc, char *argv[])
                 replaceChar(argv[i + 1 + j], ',', '.');
                 global.colors[0][j] = strtol(argv[i + 1 + j], NULL, 10);
             }
-            printf("colors[0] = {%d, %d, %d}\n", global.colors[0][0], global.colors[0][1], global.colors[0][2]);
+            printf("colors[0] = {%lld, %lld, %lld}\n", global.colors[0][0], global.colors[0][1], global.colors[0][2]);
         }
         if (strcmp(argv[i], "--colors1") == 0)
         {
@@ -129,7 +135,7 @@ void parseArguments(int64_t argc, char *argv[])
                 replaceChar(argv[i + 1 + j], ',', '.');
                 global.colors[1][j] = strtol(argv[i + 1 + j], NULL, 10);
             }
-            printf("colors[1] = {%d, %d, %d}\n", global.colors[1][0], global.colors[1][1], global.colors[1][2]);
+            printf("colors[1] = {%lld, %lld, %lld}\n", global.colors[1][0], global.colors[1][1], global.colors[1][2]);
         }
         if (strcmp(argv[i], "--ncurses") == 0)
         {
@@ -181,14 +187,7 @@ int main(int argc, char *argv[])
     global.numBars = NUM_BARS;
     */
     
-    int64_t defaultColors[2][3] = {{COLOR0}, {COLOR1}};
-    for (int64_t i = 0; i < 2; i++)
-    {
-        for (int64_t j = 0; j < 3; j++)
-        {
-            global.colors[i][j] = defaultColors[i][j];
-        }
-    }
+    
     printf("\033]0;\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588 Acid Analyzer \u2588\u2587\u2586\u2585\u2584\u2583\u2582\u2581\007");
     
     parseArguments(argc, argv);
@@ -220,7 +219,7 @@ int main(int argc, char *argv[])
         refresh();
         // attron(COLOR_PAIR(1));
         
-        // fprintf(stdout, "sizeof(fftw_complex) = %d\n", sizeof(fftw_complex));
+        // fprintf(stdout, "sizeof(fftw_complex) = %lld\n", sizeof(fftw_complex));
         
         /* and wait while we let things run */
     }

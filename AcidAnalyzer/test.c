@@ -48,7 +48,7 @@ int64_t testRingBuffer()
         fprintf(stdout, "read\n");
         for (int64_t j = 0; j < 8; j++)
         {
-            fprintf(stdout, "%d, ", readInts[j]);
+            fprintf(stdout, "%lld, ", readInts[j]);
         }
         fprintf(stdout, "\n");
     }

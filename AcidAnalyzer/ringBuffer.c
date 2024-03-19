@@ -68,11 +68,11 @@ int64_t increaseBufferWriteIndex(struct RingBuffer* rb, int64_t count)
 {
     int64_t space = (rb->size - rb->writeIndex + rb->readIndex - 1) % rb->size;
     int64_t toCopy = count > space ? space : count;
-
+    
     if (count > space && !rb->partialWrite)
     {
         rb->tooMuch++;
-        return -495232356;
+        return 0;
     }
     
     if (toCopy <= 0)
@@ -80,7 +80,7 @@ int64_t increaseBufferWriteIndex(struct RingBuffer* rb, int64_t count)
         rb->tooMuch++;
         return toCopy;
     }
-
+    
     if (rb->writeIndex + toCopy <= rb->size)
     {
         rb->writeIndex += toCopy;
@@ -100,15 +100,15 @@ int64_t writeBuffer(struct RingBuffer* rb, uint8_t *data, int64_t bufferNumber, 
     int64_t toCopy = count > space ? space : count;
     if (bufferNumber > rb->numberOfBuffers - 1)
     {
-        return -123456789;
+        return 0;
     }
-
+    
     if (count > space && !rb->partialWrite)  // rb->partialWrite will cause problems. perhaps i whould deprecate it
     {
         rb->tooMuch++;
-        return -495232356;
+        return 0;
     }
-
+    
     if (toCopy <= 0)
     {
         rb->tooMuch++;
@@ -123,7 +123,7 @@ int64_t writeBuffer(struct RingBuffer* rb, uint8_t *data, int64_t bufferNumber, 
     {
         int64_t firstHalfSize = rb->size - rb->writeIndex;
         memcpy(&rb->buffers[bufferNumber][rb->writeIndex * rb->elementSize], &data[0], firstHalfSize * rb->elementSize);
-
+        
         int64_t secondHalfSize = toCopy - firstHalfSize;
         memcpy(&rb->buffers[bufferNumber][0], &data[firstHalfSize * rb->elementSize], secondHalfSize * rb->elementSize);
     }
@@ -139,11 +139,11 @@ int64_t increaseBufferReadIndex(struct RingBuffer *rb, int64_t count)
 {
     int64_t available = (rb->size + rb->writeIndex - rb->readIndex) % rb->size - rb->chunkSize;
     int64_t toRead = count > available ? available : count;
-
+    
     if (count > available && !rb->partialRead)  // rb->partialRead will cause problems. perhaps i whould deprecate it
     {
         rb->tooLittle++;
-        return -895232356;
+        return 0;
     }
     
     if (toRead <= 0)
@@ -151,7 +151,7 @@ int64_t increaseBufferReadIndex(struct RingBuffer *rb, int64_t count)
         rb->tooLittle++;
         return toRead;
     }
-
+    
     static int64_t readTimes = 0;
     if (rb->readIndex + toRead <= rb->size)
     {
@@ -170,16 +170,16 @@ int64_t readBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t bufferNu
 {
     int64_t available = (rb->size + rb->writeIndex - rb->readIndex) % rb->size - rb->chunkSize;
     int64_t toRead = count > available ? available : count;
-
+    
     if (bufferNumber > rb->numberOfBuffers - 1)
     {
-        return -987654321;
+        return 0;
     }
-
+    
     if (count > available && !rb->partialRead)  // rb->partialRead will cause problems. perhaps i whould deprecate it
     {
         rb->tooLittle++;
-        return -895232356;
+        return 0;
     }
     
     if (toRead <= 0)
@@ -187,7 +187,7 @@ int64_t readBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t bufferNu
         rb->tooLittle++;
         return toRead;
     }
-
+    
     static int64_t readTimes = 0;
     if (rb->readIndex + toRead <= rb->size)
     {
@@ -197,10 +197,9 @@ int64_t readBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t bufferNu
     {
         int64_t firstHalfSize = rb->size - rb->readIndex;
         memcpy(&destination[0], &rb->buffers[bufferNumber][rb->readIndex * rb->elementSize], firstHalfSize * rb->elementSize);
-
+        
         int64_t secondHalfSize = toRead - firstHalfSize;
         memcpy(&destination[firstHalfSize * rb->elementSize], &rb->buffers[bufferNumber][0], secondHalfSize * rb->elementSize);
-
     }
     return toRead;
 }
@@ -209,16 +208,16 @@ int64_t readChunkFromBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t
 {
     int64_t available = (rb->size + rb->writeIndex - rb->readIndex) % rb->size;
     int64_t toRead = rb->chunkSize > available ? available : rb->chunkSize;
-
+    
     if (bufferNumber > rb->numberOfBuffers - 1)
     {
-        return -987654321;
+        return 0;
     }
-
-    if (rb->chunkSize > available && !rb->partialRead)
+    
+    if (rb->chunkSize > available)     // we should not read partial chunks. That's exactly what we don't want. Or this should be a different switch.
     {
         rb->tooLittle++;
-        return -895232356;
+        return 0;
     }
     
     if (toRead <= 0)
@@ -226,7 +225,7 @@ int64_t readChunkFromBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t
         rb->tooLittle++;
         return toRead;
     }
-
+    
     static int64_t readTimes = 0;
     if (rb->readIndex + toRead <= rb->size)
     {
@@ -236,10 +235,10 @@ int64_t readChunkFromBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t
     {
         int64_t firstHalfSize = rb->size - rb->readIndex;
         memcpy(&destination[0], &rb->buffers[bufferNumber][rb->readIndex * rb->elementSize], firstHalfSize * rb->elementSize);
-
+        
         int64_t secondHalfSize = toRead - firstHalfSize;
         memcpy(&destination[firstHalfSize * rb->elementSize], &rb->buffers[bufferNumber][0], secondHalfSize * rb->elementSize);
-
+    
     }
     return toRead;
 }

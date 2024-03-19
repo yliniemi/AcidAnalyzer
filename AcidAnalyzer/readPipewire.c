@@ -52,6 +52,7 @@ static void on_process(void *userData)
         n_channels = data->format.info.raw.channels;
 
         n_samples = spaBuffer->datas[0].chunk->size / sizeof(float) / n_channels;
+        if (n_samples > global.mostCapturedSamples) global.mostCapturedSamples = n_samples;
         if (getBufferWriteSpace(&global.allBuffer) >= n_samples)
         {
             double *audio = calloc(n_samples, sizeof(double));
@@ -120,12 +121,12 @@ void on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *par
             global.allBuffer.partialRead = true;
             if (global.usingNcurses)
             {
-                printw("initialized the buffer with %d size and %d channels", global.allBuffer.size, global.channels);
+                printw("initialized the buffer with %lld size and %lld channels", global.allBuffer.size, global.channels);
                 refresh();
             }
             else
             {
-                printf("initialized the buffer with %d size and %d channels\n", global.allBuffer.size, global.channels);
+                printf("initialized the buffer with %lld size and %lld channels\n", global.allBuffer.size, global.channels);
             }
         }
         

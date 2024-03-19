@@ -12,3 +12,12 @@ void seedNoise(uint64_t seed);
 void startFrame();
 void finalizeFrame();
 
+double smoothStep(double x);
+
+double lerp(double a, double b, double f) ;
+
+double smootherStep(double x);
+
+double getRefreshRate();
+
+
