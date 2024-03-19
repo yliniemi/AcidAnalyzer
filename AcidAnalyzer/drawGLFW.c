@@ -173,7 +173,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
     int64_t delta_time = new_time - old_time;
     if (old_time == 0) delta_time = 0;
     old_time = new_time;
-    if (channel == 0) global.colorDrift += global.colorSpeed * delta_time / (double)1000000000;
+    if (channel == 0) global.colorStart += global.colorSpeed * delta_time / (double)1000000000;
     if (!upright && !isCircle)
     {
         glColor3f(0.8f, 0.8f, 0.8f);
@@ -201,11 +201,11 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 1});
         */
         struct RGB leftRgb = HSVToRGB(
-                (struct HSV){global.colorDrift + leftBarEdgeLocation * global.colorRange,
+                (struct HSV){global.colorStart + leftBarEdgeLocation * global.colorRange,
                 global.colorSaturation,
                 global.colorBrightness});
         struct RGB rightRgb = HSVToRGB(
-                (struct HSV){global.colorDrift + rightBarEdgeLocation * global.colorRange,
+                (struct HSV){global.colorStart + rightBarEdgeLocation * global.colorRange,
                 global.colorSaturation,
                 global.colorBrightness});
         // glColor3f(rgb.R, rgb.G, rgb.B);
@@ -534,7 +534,7 @@ void postInitializeWindow()
     
     // glEnable(GL_BLEND);
     // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // glfwSetWindowOpacity(window, 0.5f);
+    glfwSetWindowOpacity(window, global.colorOpacity);
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     
     glfwSetKeyCallback(window, keyCallback);

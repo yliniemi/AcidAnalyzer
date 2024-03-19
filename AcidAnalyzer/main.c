@@ -185,17 +185,23 @@ void parseArguments(int64_t argc, char *argv[])
             global.colorSaturation = strtod(argv[i + 1], NULL);
             printf("colorSaturation = %f\n", global.colorSaturation);
         }
-        if (strcmp(argv[i], "--colorDrift") == 0)
+        if (strcmp(argv[i], "--colorStart") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
-            global.colorDrift = strtod(argv[i + 1], NULL);
-            printf("colorDrift = %f\n", global.colorDrift);
+            global.colorStart = strtod(argv[i + 1], NULL);
+            printf("colorStart = %f\n", global.colorStart);
         }
         if (strcmp(argv[i], "--colorBrightness") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
             global.colorBrightness = strtod(argv[i + 1], NULL);
             printf("colorBrightness = %f\n", global.colorBrightness);
+        }
+        if (strcmp(argv[i], "--colorOpacity") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.colorOpacity = strtod(argv[i + 1], NULL);
+            printf("colorOpacity = %f\n", global.colorOpacity);
         }
     }
 }

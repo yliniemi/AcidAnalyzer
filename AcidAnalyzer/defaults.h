@@ -56,8 +56,9 @@ struct Global
     double colorRange;
     double colorSpeed;
     double colorSaturation;
-    double colorDrift;
+    double colorStart;
     double colorBrightness;
+    double colorOpacity;
 };
 
 extern struct Global global;
@@ -93,8 +94,9 @@ void setGobalDefaults()
     global.colorRange = 0.05;
     global.colorSpeed = 0.01;
     global.colorSaturation = 0.99;
-    global.colorDrift = 0.0;
+    global.colorStart = 0.0;
     global.colorBrightness = 1.0;
+    global.colorOpacity = 0.7;
     
     int64_t defaultColors[2][3] = {{0, 0, 1000}, {300, 300, 1000}};
     for (int64_t i = 0; i < 2; i++)
