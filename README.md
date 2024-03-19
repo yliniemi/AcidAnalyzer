@@ -50,7 +50,7 @@ make
 
 Example
 ```console
-./AcidAnalyzer --fps 122 --FFTsize 16384 --dynamicRange 60 --kaiserBeta 5.0 --glfw false --ncurses true
+./AcidAnalyzer --fps 122 --FFTsize 16384 --dynamicRange 60 --kaiserBeta 5.0 --glfw false --ncurses true --barMode 1
 ```
 
 ### Keyboard shortcuts

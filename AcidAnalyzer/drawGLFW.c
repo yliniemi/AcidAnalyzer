@@ -75,22 +75,23 @@ double smootherStep(double x)
 
 struct RGB
 {
-	float R;
-	float G;
-	float B;
+	double R;
+	double G;
+	double B;
 };
 
 struct HSV
 {
-	float H;
-	float S;
-	float V;
+	double H;
+	double S;
+	double V;
 };
 
 struct RGB HSVToRGB(struct HSV hsv)
 {
 	struct RGB rgb;
-
+	hsv.H = fmod(hsv.H, 1.0);
+	if (hsv.H < 0) hsv.H += 1;
 	if (hsv.S <= 0)
 	{
 		rgb.R = hsv.V;
@@ -107,7 +108,7 @@ struct RGB HSVToRGB(struct HSV hsv)
 			hsv.H = 0;
 		else
 		{
-			hsv.H = fmodf(hsv.H, 1.0);
+			hsv.H = fmod(hsv.H, 1.0);
 		}
 
 		i = (int)trunc(hsv.H * 6.0);
@@ -161,48 +162,64 @@ struct RGB HSVToRGB(struct HSV hsv)
 
 void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool upright, bool isCircle)
 {
-    float biggestNoiseScale = 0.05;
-    float smallestTimeScale = 0.00000000008;
-    float tilt = (OpenSimplex2F_noise2(simplexContext, currentNanoTime * smallestTimeScale * 1, 0) * 1
+    double biggestNoiseScale = 0.05;
+    double smallestTimeScale = 0.00000000008;
+    double tilt = (OpenSimplex2F_noise2(simplexContext, currentNanoTime * smallestTimeScale * 1, 0) * 1
         + OpenSimplex2F_noise2(simplexContext, currentNanoTime * smallestTimeScale * 2, 10) * 0.5
         + OpenSimplex2F_noise2(simplexContext, currentNanoTime * smallestTimeScale * 4, 20) * 0.25) * biggestNoiseScale;
-    float bottom;
+    double bottom;
+    static int64_t old_time = 0;
+    int64_t new_time = nanoTime();
+    int64_t delta_time = new_time - old_time;
+    if (old_time == 0) delta_time = 0;
+    old_time = new_time;
+    if (channel == 0) global.colorDrift += global.colorSpeed * delta_time / (double)1000000000;
     if (!upright && !isCircle)
     {
         glColor3f(0.8f, 0.8f, 0.8f);
-        bottom = ((channel + 1) / (float)numChannels) * 2 - 1;
+        bottom = ((channel + 1) / (double)numChannels) * 2 - 1;
     }
     else
     {
         glColor3f(1.0f, 1.0f, 1.0f);
-        bottom = (channel / (float)numChannels) * 2 - 1;
+        bottom = (channel / (double)numChannels) * 2 - 1;
     }
     
     for (int64_t barIndex = 0; barIndex < numBars; barIndex++)
     {
-        float barHeigth = soundArray[barIndex];
-        float leftBarEdgeLocation = (barIndex + 0.5 - barWidth * 0.5) / (float)numBars;
-        float rightBarEdgeLocation = (barIndex + 0.5 + barWidth * 0.5) / (float)numBars;
+        double barHeigth = soundArray[barIndex];
+        double leftBarEdgeLocation = (barIndex + 0.5 - barWidth * 0.5) / (double)numBars;
+        double rightBarEdgeLocation = (barIndex + 0.5 + barWidth * 0.5) / (double)numBars;
+        /*
         struct RGB leftRgb = HSVToRGB(
                 (struct HSV){lerp(smoothStep(leftBarEdgeLocation), leftBarEdgeLocation, 0.6) * 0.666,
-                1,
+                global.colorSaturation,
                 1});
         struct RGB rightRgb = HSVToRGB(
                 (struct HSV){lerp(smoothStep(rightBarEdgeLocation), rightBarEdgeLocation, 0.6) * 0.666,
-                1,
+                global.colorSaturation,
                 1});
+        */
+        struct RGB leftRgb = HSVToRGB(
+                (struct HSV){global.colorDrift + leftBarEdgeLocation * global.colorRange,
+                global.colorSaturation,
+                global.colorBrightness});
+        struct RGB rightRgb = HSVToRGB(
+                (struct HSV){global.colorDrift + rightBarEdgeLocation * global.colorRange,
+                global.colorSaturation,
+                global.colorBrightness});
         // glColor3f(rgb.R, rgb.G, rgb.B);
         if (barHeigth < 0) barHeigth = 0;
         
-        float left = (barIndex + 0.5 - barWidth * 0.5) / (float)numBars * 2 - 1;
-        float right = (barIndex + 0.5 + barWidth * 0.5) / (float)numBars * 2 - 1;
-        float top;
+        double left = (barIndex + 0.5 - barWidth * 0.5) / (double)numBars * 2 - 1;
+        double right = (barIndex + 0.5 + barWidth * 0.5) / (double)numBars * 2 - 1;
+        double top;
         if (upright) top = bottom + barHeigth * 2 / numChannels;
         else top = bottom - barHeigth * 2 / numChannels;
         
         if (global.barMode == CIRCLE && numChannels < 3)
         {
-            float leftCos, leftSin, rightCos, rightSin;
+            double leftCos, leftSin, rightCos, rightSin;
             if (channel == 0)
             {
                 leftCos = properCos(0.75 - leftBarEdgeLocation / 2 + tilt) * xRatio;
@@ -244,7 +261,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
             }
             else
             {
-                float vertices[4 * 2] =
+                GLfloat vertices[4 * 2] =
                 {
                     leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
                     rightCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
@@ -283,7 +300,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 leftBarEdgeLocation *= xSizeRatio;
                 rightBarEdgeLocation *= xSizeRatio;
             }
-                float vertices[4 * 2] =
+                GLfloat vertices[4 * 2] =
                 {
                     leftBarEdgeLocation + offsetX, barHeigth * 2 * sizeRatio - 1 + offsetY,
                     rightBarEdgeLocation + offsetX, barHeigth * 2 * sizeRatio - 1 + offsetY,

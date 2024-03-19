@@ -167,9 +167,38 @@ void parseArguments(int64_t argc, char *argv[])
             }
             printf("usingGlfw = %s\n", global.usingGlfw ? "true" : "false");
         }
+        if (strcmp(argv[i], "--colorRange") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.colorRange = strtod(argv[i + 1], NULL);
+            printf("colorRange = %f\n", global.colorRange);
+        }
+        if (strcmp(argv[i], "--colorSpeed") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.colorSpeed = strtod(argv[i + 1], NULL);
+            printf("colorSpeed = %f\n", global.colorSpeed);
+        }
+        if (strcmp(argv[i], "--colorSaturation") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.colorSaturation = strtod(argv[i + 1], NULL);
+            printf("colorSaturation = %f\n", global.colorSaturation);
+        }
+        if (strcmp(argv[i], "--colorDrift") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.colorDrift = strtod(argv[i + 1], NULL);
+            printf("colorDrift = %f\n", global.colorDrift);
+        }
+        if (strcmp(argv[i], "--colorBrightness") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.colorBrightness = strtod(argv[i + 1], NULL);
+            printf("colorBrightness = %f\n", global.colorBrightness);
+        }
     }
 }
-
 
 
 
