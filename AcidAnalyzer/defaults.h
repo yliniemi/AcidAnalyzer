@@ -51,7 +51,8 @@ struct Global
     enum
     {
         BAR,
-        CIRCLE
+        CIRCLE,
+        WAVE
     } barMode;
     double colorRange;
     double colorSpeed;
@@ -59,6 +60,8 @@ struct Global
     double colorStart;
     double colorBrightness;
     double colorOpacity;
+    bool hanging;
+    bool wave;
 };
 
 extern struct Global global;
@@ -89,14 +92,16 @@ void setGobalDefaults()
     global.mostReadSamples = 0;
     global.minBufferDepth = 1000000000;
     global.maxBufferDept = 0;
-    global.barWidth = 1.0;
+    global.barWidth = 0.8;
     global.barMode = BAR;
-    global.colorRange = 0.05;
+    global.colorRange = 0.15;
     global.colorSpeed = 0.01;
-    global.colorSaturation = 0.99;
+    global.colorSaturation = 1.0;
     global.colorStart = 0.0;
     global.colorBrightness = 1.0;
     global.colorOpacity = 0.7;
+    global.hanging = false;
+    global.wave = true;
     
     int64_t defaultColors[2][3] = {{0, 0, 1000}, {300, 300, 1000}};
     for (int64_t i = 0; i < 2; i++)

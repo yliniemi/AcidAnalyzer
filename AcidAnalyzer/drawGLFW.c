@@ -185,11 +185,60 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
         bottom = (channel / (double)numChannels) * 2 - 1;
     }
     
+    /*
+    if (global.barMode == WAVE && numChannels < 3)
+    {
+        firstBinLog = log2(global.firstBin);
+        lastBinLog = log2(global.lastBin);
+        int64_t currentBin = global.firstBin;
+        for (int64_t barIndex = 0; barIndex < numBars - 1; barIndex++)
+        {
+            int64_t nextBin = currentBin + floor((startingPoint * ratio) + 1.0);
+            double barHeigthLeft = soundArray[barIndex];
+            if (barHeigthLeft < 0) barHeigthLeft = 0;
+            double barHeigthRight = soundArray[barIndex + 1];
+            if (barHeigthRight < 0) barHeigthRight = 0;
+            double leftBarEdgeLocation = (log2(currentBin) - firstBinLog) / (lastBinLog - firstBinLog);
+            double rightBarEdgeLocation = (log2(nextBin) - firstBinLog) / (lastBinLog - firstBinLog);
+            
+            struct RGB leftRgb = HSVToRGB(
+                    (struct HSV){global.colorStart + leftBarEdgeLocation * global.colorRange,
+                    global.colorSaturation,
+                    global.colorBrightness});
+            struct RGB rightRgb = HSVToRGB(
+                    (struct HSV){global.colorStart + rightBarEdgeLocation * global.colorRange,
+                    global.colorSaturation,
+                    global.colorBrightness});
+            // glColor3f(rgb.R, rgb.G, rgb.B);
+        }
+    }
+    */
+    
+    int64_t secondBin = FFTdata.firstBin + floor((FFTdata.firstBin * FFTdata.ratio) + 1.0);
+    double firstBinLog = log2(sqrt(FFTdata.firstBin * (secondBin - 1)));
+    // double lastBinLog = log2(FFTdata.lastBin);
+    double secondToLastBinLog = log2(sqrt(FFTdata.secondToLastBin * (FFTdata.lastBin - 1)));
+    int64_t currentBin = FFTdata.firstBin;
     for (int64_t barIndex = 0; barIndex < numBars; barIndex++)
     {
-        double barHeigth = soundArray[barIndex];
+        int64_t nextBin = currentBin + floor((currentBin * FFTdata.ratio) + 1.0);
+        int64_t nextNextBin = nextBin + floor((nextBin * FFTdata.ratio) + 1.0);
+        
+        if (global.wave && barIndex >= numBars - 1) goto skip;
+        double barHeigthLeft = soundArray[barIndex];
+        double barHeigthRight = barHeigthLeft;
         double leftBarEdgeLocation = (barIndex + 0.5 - barWidth * 0.5) / (double)numBars;
         double rightBarEdgeLocation = (barIndex + 0.5 + barWidth * 0.5) / (double)numBars;
+        
+        if (global.wave)
+        {
+            barHeigthRight = soundArray[barIndex + 1];
+            leftBarEdgeLocation = (log2(sqrt(currentBin * (nextBin - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
+            rightBarEdgeLocation = (log2(sqrt(nextBin * (nextNextBin - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
+        }
+        currentBin = nextBin;
+        if (barHeigthLeft < 0) barHeigthLeft = 0;
+        if (barHeigthRight < 0) barHeigthRight = 0;
         /*
         struct RGB leftRgb = HSVToRGB(
                 (struct HSV){lerp(smoothStep(leftBarEdgeLocation), leftBarEdgeLocation, 0.6) * 0.666,
@@ -209,16 +258,21 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 global.colorSaturation,
                 global.colorBrightness});
         // glColor3f(rgb.R, rgb.G, rgb.B);
-        if (barHeigth < 0) barHeigth = 0;
         
         double left = (barIndex + 0.5 - barWidth * 0.5) / (double)numBars * 2 - 1;
         double right = (barIndex + 0.5 + barWidth * 0.5) / (double)numBars * 2 - 1;
         double top;
-        if (upright) top = bottom + barHeigth * 2 / numChannels;
-        else top = bottom - barHeigth * 2 / numChannels;
+        if (upright) top = bottom + barHeigthLeft * 2 / numChannels;
+        else top = bottom - barHeigthLeft * 2 / numChannels;
         
         if (global.barMode == CIRCLE && numChannels < 3)
         {
+            if (global.hanging)
+            {
+                leftBarEdgeLocation = leftBarEdgeLocation * -1 + 1;
+                rightBarEdgeLocation = rightBarEdgeLocation * -1 + 1;
+            }
+            
             double leftCos, leftSin, rightCos, rightSin;
             if (channel == 0)
             {
@@ -254,17 +308,17 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 glVertex2f(leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY);
                 // glColor4f(1,0,0, 0.5);
                 glColor4f(leftRgb.R, leftRgb.G, leftRgb.B, 1);
-                glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
+                glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigthLeft + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigthLeft + emptyCircleRatio) + offsetY);
                 glColor4f(rightRgb.R, rightRgb.G, rightRgb.B, 1);
-                glVertex2f(rightCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
+                glVertex2f(rightCos * ((1 - emptyCircleRatio) * barHeigthRight + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigthRight + emptyCircleRatio) + offsetY);
                 glEnd();
             }
             else
             {
                 GLfloat vertices[4 * 2] =
                 {
-                    leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
-                    rightCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY,
+                    leftCos * ((1 - emptyCircleRatio) * barHeigthLeft + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigthLeft + emptyCircleRatio) + offsetY,
+                    rightCos * ((1 - emptyCircleRatio) * barHeigthRight + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigthRight + emptyCircleRatio) + offsetY,
                     leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY,
                     rightCos * emptyCircleRatio + offsetX, rightSin * emptyCircleRatio + offsetY
                 };
@@ -302,11 +356,22 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
             }
                 GLfloat vertices[4 * 2] =
                 {
-                    leftBarEdgeLocation + offsetX, barHeigth * 2 * sizeRatio - 1 + offsetY,
-                    rightBarEdgeLocation + offsetX, barHeigth * 2 * sizeRatio - 1 + offsetY,
+                    leftBarEdgeLocation + offsetX, barHeigthLeft * 2 * sizeRatio - 1 + offsetY,
+                    rightBarEdgeLocation + offsetX, barHeigthRight * 2 * sizeRatio - 1 + offsetY,
                     leftBarEdgeLocation + offsetX, -1 + offsetY,
                     rightBarEdgeLocation + offsetX, -1 + offsetY
                 };
+                if (global.hanging)
+                {
+                    vertices[0] = leftBarEdgeLocation + offsetX;
+                    vertices[1] = barHeigthLeft * -2 * sizeRatio + 1 + offsetY;
+                    vertices[2] = rightBarEdgeLocation + offsetX;
+                    vertices[3] = barHeigthRight * -2 * sizeRatio + 1 + offsetY;
+                    vertices[4] = leftBarEdgeLocation + offsetX;
+                    vertices[5] = 1 + offsetY;
+                    vertices[6] = rightBarEdgeLocation + offsetX;
+                    vertices[7] = 1 + offsetY;
+                }
                 GLfloat colors[] =
                 {
                     leftRgb.R, leftRgb.G, leftRgb.B,
@@ -334,6 +399,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
             glVertex2f(left, bottom);
             glEnd();
         }
+    skip:;
     }
 }
 
@@ -426,6 +492,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         if (key == GLFW_KEY_ESCAPE && (glfwGetWindowMonitor(window) != NULL))
         {
             toggleFullscreen(window);
+        }
+        if (key == GLFW_KEY_I)
+        {
+            global.colorStart += 0.5;
         }
     }
     if (action == GLFW_REPEAT || action == GLFW_PRESS)
@@ -531,6 +601,7 @@ void postInitializeWindow()
     swap_tear = (glfwExtensionSupported("WGL_EXT_swap_control_tear") ||
                  glfwExtensionSupported("GLX_EXT_swap_control_tear"));
     
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     
     // glEnable(GL_BLEND);
     // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

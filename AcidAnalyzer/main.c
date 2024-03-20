@@ -167,6 +167,30 @@ void parseArguments(int64_t argc, char *argv[])
             }
             printf("usingGlfw = %s\n", global.usingGlfw ? "true" : "false");
         }
+        if (strcmp(argv[i], "--hanging") == 0)
+        {
+            if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "false") == 0)
+            {
+                global.hanging = false;
+            }
+            else
+            {
+                global.hanging = true;
+            }
+            printf("usingNcurses = %s\n", global.usingNcurses ? "true" : "false");
+        }
+        if (strcmp(argv[i], "--wave") == 0)
+        {
+            if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "false") == 0)
+            {
+                global.wave = false;
+            }
+            else
+            {
+                global.wave = true;
+            }
+            printf("wave = %s\n", global.wave ? "true" : "false");
+        }
         if (strcmp(argv[i], "--colorRange") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');

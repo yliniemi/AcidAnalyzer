@@ -35,6 +35,9 @@
 
 extern struct Global global;
 
+extern struct FFTData FFTdata;
+struct FFTData FFTdata;
+
 pthread_t readAudioBuffer;
 
 double substract_universal[6]  =
@@ -215,17 +218,27 @@ void* threadFunction(void* arg)
                 if (global.sampleRate != oldSampleRate) increaseBufferReadIndex(&global.allBuffer, 1000000000000);
                 oldSampleRate = global.sampleRate;
                 oldNumBars = global.numBars;
-                startingPoint = max(global.minFrequency * global.FFTsize / global.sampleRate + 0, 1);
-                int64_t n_bins = min(global.FFTsize / 2, global.maxFrequency * global.FFTsize / global.sampleRate);
+                startingPoint = max(global.minFrequency * global.FFTsize / global.sampleRate + 1, 1);
+                FFTdata.firstBin = startingPoint;
+                printf("startingPoint = %lld\n", startingPoint);
+                int64_t lastBin = min(global.FFTsize / 2, global.maxFrequency * global.FFTsize / global.sampleRate);
+                FFTdata.lastBin = lastBin;
                 /*
-                printw("\nstartingPoint = %lld, bins = %lld, columns = %lld", startingPoint, n_bins, global.numBars);
+                printw("\nstartingPoint = %lld, bins = %lld, columns = %lld", startingPoint, lastBin, global.numBars);
                 refresh();
                 struct timespec rem;
                 struct timespec req = {30, 0};
                 nanosleep(&req, &rem);
                 */
-                ratio = findRatio(60, 0, 1, 0, startingPoint, n_bins, global.numBars);
-                if (n_bins - startingPoint < global.numBars) global.numBars = n_bins - startingPoint;
+                ratio = findRatio(60, 0, 1, 0, startingPoint, lastBin, global.numBars);
+                FFTdata.ratio = ratio;
+                if (lastBin - startingPoint < global.numBars) global.numBars = lastBin - startingPoint;
+                int64_t intermediaryBin = 0;
+                for (int64_t i = 1; i < global.numBars; i++)
+                {
+                    intermediaryBin += floor((intermediaryBin * ratio) + 1.0);
+                }
+                FFTdata.secondToLastBin = intermediaryBin;
                 updatedSomething = true;
             }
             if (w.ws_row != windowRows)
