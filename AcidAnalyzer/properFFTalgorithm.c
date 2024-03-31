@@ -266,6 +266,7 @@ void* threadFunction(void* arg)
             {
                 newSamples = newSamples * lerp(0.9, 1.0, samplesAfterReading / (double)global.sampleRate * global.fps);
             }
+            // if (global.smoothenAnimation == false) newSamples = ((double)global.sampleRate * delta_ns) / 1000000000.0 * slope + 1 + remainder;    // not actually needed because of the if block before
             // newSamplesRemainder = newSamples - floor(newSamples);
             int64_t readSamples = increaseBufferReadIndex(&global.allBuffer, newSamples);
             if (readSamples <= 0)
@@ -323,9 +324,10 @@ void* threadFunction(void* arg)
             
             
             static int64_t printDebug_ns = 0;
-            if ((printDebug_ns + 10000000000 < new_ns) || updatedSomething == true)
+            int64_t new_debug_ns = nanoTime();
+            if ((printDebug_ns + 10000000000 < new_debug_ns) || updatedSomething == true)
             {
-                int64_t printDebug_delta_ns = new_ns - printDebug_ns;
+                int64_t printDebug_delta_ns = new_debug_ns - printDebug_ns;
                 double actualFPS = (double)frameNumber / (double)printDebug_delta_ns * 1000000000;
                 if (global.usingNcurses)
                 {
@@ -337,7 +339,7 @@ void* threadFunction(void* arg)
                 {
                     printf("fps = %.2f, sample rate = %lld, FFT = %lld, threads = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, global.threadsPerChannel, ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
                 }
-                printDebug_ns = new_ns;
+                printDebug_ns = new_debug_ns;
                 frameNumber = 0;
                 global.leastReadSamples = 1000000000;
                 global.mostReadSamples = 0;
