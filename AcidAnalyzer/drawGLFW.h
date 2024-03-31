@@ -39,4 +39,6 @@ double smootherStep(double x);
 
 double getRefreshRate();
 
+double nextBin(double currentBin, double ratio);
+
 

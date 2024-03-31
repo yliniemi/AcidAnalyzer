@@ -51,13 +51,14 @@ void multiplyArrays(const double* array1, const double* array2, double* result, 
     }
 }
 
-double checkRatio(double ratio, double startingPoint, int64_t rounds)
+double checkRatio(double startingPoint, double ratio, int64_t rounds)
 {
     for (int64_t i = 0; i < rounds; i++)
     {
         // int64_t add = startingPoint * ratio + 1.0;
         // if (add <= 0) add = 1;
-        startingPoint += floor((startingPoint * ratio) + 1.0);
+        // startingPoint += floor((startingPoint * ratio) + 1.0);
+        startingPoint = nextBin(startingPoint, ratio);
     }
     return startingPoint;
 }
@@ -65,11 +66,11 @@ double checkRatio(double ratio, double startingPoint, int64_t rounds)
 double findRatio(int64_t maxDepth, double low, double high, double lowestValid, double startingPoint, double endGoal, int64_t rounds)
 {
     double middle = (low + high) * 0.5;
-    double result = checkRatio(middle, startingPoint, rounds);
+    double result = checkRatio(startingPoint, middle, rounds);
     #ifdef THIS_IS_A_TEST
     fprintf(stdout, "%.17f : %f\n", middle, result);
     #endif
-    if (result == endGoal || maxDepth <= 0) return lowestValid;    
+    if (maxDepth <= 0) return low;
     if (result > endGoal)
     {
         return findRatio(maxDepth - 1, low, middle, lowestValid, startingPoint, endGoal, rounds);
@@ -134,7 +135,7 @@ void powTwoBands(double *realPower, double *bands, int64_t n_bands, int64_t star
   for (int64_t i = 0; i < n_bands; i++)
   {
     bands[i] = 0;
-    int64_t endPoint = startingPoint + floor((startingPoint * ratio) + 1.0);
+    int64_t endPoint = nextBin(startingPoint, ratio);
     for (int64_t j = startingPoint; j < endPoint; j++)
     {
       bands[i] += realPower[j];
@@ -148,7 +149,7 @@ void logBands(double *bands, double *logBands, int64_t n_bands, int64_t starting
   for (int64_t i = 0; i < n_bands; i++)
   {
     logBands[i] = log10(bands[i]);
-    int64_t delta = floor((startingPoint * ratio) + 1.0);
+    int64_t delta = nextBin(startingPoint, ratio) - startingPoint;
     if (delta < 1) delta = 1;
     if (delta > 6) delta = 6;
     logBands[i] = logBands[i] - substract_universal[delta - 1];
@@ -208,7 +209,8 @@ void* threadFunction(void* arg)
             
             static int64_t old_ns = 0;
             int64_t new_ns = nanoTime();
-            if (new_ns - old_ns < 995000000 / global.fps) new_ns = old_ns + 995000000 / global.fps;
+            
+            if (global.smoothenAnimation && new_ns - old_ns < 995000000 / global.fps) new_ns = old_ns + 995000000 / global.fps;
             int64_t delta_ns = new_ns - old_ns;
             
             if (global.usingNcurses) global.numBars = w.ws_col;
@@ -230,15 +232,19 @@ void* threadFunction(void* arg)
                 struct timespec req = {30, 0};
                 nanosleep(&req, &rem);
                 */
-                ratio = findRatio(60, 0, 1, 0, startingPoint, lastBin, global.numBars);
+                ratio = findRatio(60, 1, 2, 1, startingPoint, lastBin, global.numBars);
                 FFTdata.ratio = ratio;
                 if (lastBin - startingPoint < global.numBars) global.numBars = lastBin - startingPoint;
-                int64_t intermediaryBin = 0;
+                double intermediaryBin = startingPoint;
                 for (int64_t i = 1; i < global.numBars; i++)
                 {
-                    intermediaryBin += floor((intermediaryBin * ratio) + 1.0);
+                    // intermediaryBin += floor((intermediaryBin * ratio) + 1.0);
+                    intermediaryBin = nextBin(intermediaryBin, ratio);
                 }
                 FFTdata.secondToLastBin = intermediaryBin;
+                lastBin = nextBin(intermediaryBin, ratio);
+                printf("lastBin = %lld or %lld or %lld\n", FFTdata.lastBin,  lastBin, (int64_t)checkRatio(FFTdata.firstBin, FFTdata.ratio, global.numBars));
+                FFTdata.lastBin = lastBin;
                 updatedSomething = true;
             }
             if (w.ws_row != windowRows)
@@ -316,10 +322,10 @@ void* threadFunction(void* arg)
             }
             
             
-            static uint64_t printDebug_ns = 0;
+            static int64_t printDebug_ns = 0;
             if ((printDebug_ns + 10000000000 < new_ns) || updatedSomething == true)
             {
-                uint64_t printDebug_delta_ns = new_ns - printDebug_ns;
+                int64_t printDebug_delta_ns = new_ns - printDebug_ns;
                 double actualFPS = (double)frameNumber / (double)printDebug_delta_ns * 1000000000;
                 if (global.usingNcurses)
                 {

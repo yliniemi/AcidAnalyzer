@@ -48,6 +48,11 @@ static int64_t sizeInt = 0;
 static int64_t xSizeInt = 0;
 static double emptyCircleRatio = 0.2;
 
+double nextBin(double currentBin, double ratio)
+{
+    return floor(currentBin * ratio + 1.0);
+}
+
 float properSin(float ratioAngle)
 {
     return sinf(ratioAngle * 2 * PI);
@@ -214,15 +219,15 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
     }
     */
     
-    int64_t secondBin = FFTdata.firstBin + floor((FFTdata.firstBin * FFTdata.ratio) + 1.0);
+    int64_t secondBin = nextBin(FFTdata.firstBin, FFTdata.ratio);
     double firstBinLog = log2(sqrt(FFTdata.firstBin * (secondBin - 1)));
     // double lastBinLog = log2(FFTdata.lastBin);
     double secondToLastBinLog = log2(sqrt(FFTdata.secondToLastBin * (FFTdata.lastBin - 1)));
     int64_t currentBin = FFTdata.firstBin;
     for (int64_t barIndex = 0; barIndex < numBars; barIndex++)
     {
-        int64_t nextBin = currentBin + floor((currentBin * FFTdata.ratio) + 1.0);
-        int64_t nextNextBin = nextBin + floor((nextBin * FFTdata.ratio) + 1.0);
+        int64_t nextBinResult = nextBin(currentBin, FFTdata.ratio);
+        int64_t nextNextBin = nextBin(nextBinResult, FFTdata.ratio);
         
         if (global.wave && barIndex >= numBars - 1) goto skip;
         double barHeigthLeft = soundArray[barIndex];
@@ -233,12 +238,12 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
         if (global.wave)
         {
             barHeigthRight = soundArray[barIndex + 1];
-            leftBarEdgeLocation = (log2(sqrt(currentBin * (nextBin - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
-            rightBarEdgeLocation = (log2(sqrt(nextBin * (nextNextBin - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
+            leftBarEdgeLocation = (log2(sqrt(currentBin * (nextBinResult - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
+            rightBarEdgeLocation = (log2(sqrt(nextBinResult * (nextNextBin - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
         }
-        currentBin = nextBin;
-        if (barHeigthLeft < 0) barHeigthLeft = 0;
-        if (barHeigthRight < 0) barHeigthRight = 0;
+        currentBin = nextBinResult;
+        if (barHeigthLeft < global.minBarHeight) barHeigthLeft = global.minBarHeight;
+        if (barHeigthRight < global.minBarHeight) barHeigthRight = global.minBarHeight;
         /*
         struct RGB leftRgb = HSVToRGB(
                 (struct HSV){lerp(smoothStep(leftBarEdgeLocation), leftBarEdgeLocation, 0.6) * 0.666,
@@ -411,7 +416,7 @@ static void update_window_title(GLFWwindow* window)
 {
     char title[256];
 
-    snprintf(title, sizeof(title), "Acid Analyzer %.2f fps, rafresh rate %.2f",
+    snprintf(title, sizeof(title), "Acid Analyzer %.2f fps, refresh rate %.2f",
              frameRate, global.fps);
 
     glfwSetWindowTitle(window, title);
@@ -600,6 +605,7 @@ void postInitializeWindow()
     
     swap_tear = (glfwExtensionSupported("WGL_EXT_swap_control_tear") ||
                  glfwExtensionSupported("GLX_EXT_swap_control_tear"));
+    printf("swap_tear = %lld\n", swap_tear);
     
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     

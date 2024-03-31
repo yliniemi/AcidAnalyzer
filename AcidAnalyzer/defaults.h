@@ -62,6 +62,8 @@ struct Global
     double colorOpacity;
     bool hanging;
     bool wave;
+    double minBarHeight;
+    bool smoothenAnimation;
 };
 
 extern struct Global global;
@@ -102,6 +104,8 @@ void setGobalDefaults()
     global.colorOpacity = 0.7;
     global.hanging = false;
     global.wave = true;
+    global.minBarHeight = 0.02;
+    global.smoothenAnimation = true;
     
     int64_t defaultColors[2][3] = {{0, 0, 1000}, {300, 300, 1000}};
     for (int64_t i = 0; i < 2; i++)

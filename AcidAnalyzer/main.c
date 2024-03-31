@@ -191,6 +191,18 @@ void parseArguments(int64_t argc, char *argv[])
             }
             printf("wave = %s\n", global.wave ? "true" : "false");
         }
+        if (strcmp(argv[i], "--smoothenAnimation") == 0)
+        {
+            if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "false") == 0)
+            {
+                global.smoothenAnimation = false;
+            }
+            else
+            {
+                global.smoothenAnimation = true;
+            }
+            printf("smoothenAnimation = %s\n", global.smoothenAnimation ? "true" : "false");
+        }
         if (strcmp(argv[i], "--colorRange") == 0)
         {
             replaceChar(argv[i + 1], ',', '.');
@@ -226,6 +238,12 @@ void parseArguments(int64_t argc, char *argv[])
             replaceChar(argv[i + 1], ',', '.');
             global.colorOpacity = strtod(argv[i + 1], NULL);
             printf("colorOpacity = %f\n", global.colorOpacity);
+        }
+        if (strcmp(argv[i], "--minBarHeight") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.minBarHeight = strtod(argv[i + 1], NULL);
+            printf("minBarHeight = %f\n", global.minBarHeight);
         }
     }
 }
