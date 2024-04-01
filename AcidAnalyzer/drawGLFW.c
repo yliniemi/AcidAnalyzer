@@ -605,7 +605,7 @@ void postInitializeWindow()
     
     swap_tear = (glfwExtensionSupported("WGL_EXT_swap_control_tear") ||
                  glfwExtensionSupported("GLX_EXT_swap_control_tear"));
-    printf("swap_tear = %lld\n", swap_tear);
+    printf("swap_tear = %d\n", swap_tear);
     
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     
