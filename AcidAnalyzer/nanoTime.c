@@ -34,7 +34,7 @@ int64_t nanoTime()
     #if defined(__linux__) || defined(__APPLE__)
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-    return ts.tv_sec * 1000000000 + ts.tv_nsec;
+    return (int64_t)ts.tv_sec * 1000000000 + (int64_t)ts.tv_nsec;
     #endif
     
     #ifdef _WIN32
@@ -48,7 +48,7 @@ int64_t nanoSleepUniversal(int64_t nanoSeconds)
     struct timespec requested = {nanoSeconds / 1000000000, nanoSeconds % 1000000000};
     struct timespec remaining;
     nanosleep(&requested, &remaining);
-    return remaining.tv_sec * 1000000000 + remaining.tv_nsec;
+    return (int64_t)remaining.tv_sec * 1000000000 + (int64_t)remaining.tv_nsec;
     #endif
     
     #ifdef _WIN32

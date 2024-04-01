@@ -333,11 +333,11 @@ void* threadFunction(void* arg)
                 {
                     move(w.ws_row - 1, 0);
                     color_set(3, NULL);
-                    printw("fps = %.2f, sample rate = %d, FFT = %d, threads = %d, ratio = %f, bars = %d , capturedSamples = %d, readSamples = %d-%d, bufferDepth = %d-%d\n", (float)actualFPS, (int32_t)global.sampleRate, (int32_t)global.FFTsize, (int32_t)global.threadsPerChannel, (float)ratio, (int32_t)global.numBars, (int32_t)global.mostCapturedSamples, (int32_t)global.leastReadSamples, (int32_t)global.mostReadSamples, (int32_t)global.minBufferDepth, (int32_t)global.maxBufferDept);
+                    printw("fps = %.2f, sample rate = %lld, FFT = %lld, threads = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, global.threadsPerChannel, ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
                 }
                 else
                 {
-                    printf("fps = %.2f, sample rate = %d, FFT = %d, threads = %d, ratio = %f, bars = %d , capturedSamples = %d, readSamples = %d-%d, bufferDepth = %d-%d\n", (float)actualFPS, (int32_t)global.sampleRate, (int32_t)global.FFTsize, (int32_t)global.threadsPerChannel, (float)ratio, (int32_t)global.numBars, (int32_t)global.mostCapturedSamples, (int32_t)global.leastReadSamples, (int32_t)global.mostReadSamples, (int32_t)global.minBufferDepth, (int32_t)global.maxBufferDept);
+                    printf("fps = %.2f, sample rate = %lld, FFT = %lld, threads = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, global.threadsPerChannel, ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
                 }
                 printDebug_ns = new_debug_ns;
                 frameNumber = 0;
