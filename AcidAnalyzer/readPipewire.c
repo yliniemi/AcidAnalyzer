@@ -39,18 +39,18 @@ static void on_process(void *userData)
         struct spa_buffer *spaBuffer;
         uint32_t n_samples;
         static int64_t n_channels = 0;
- 
+        
         if ((pipeWireBuffer = pw_stream_dequeue_buffer(data->stream)) == NULL) {
                 pw_log_warn("out of buffers: %m");
                 return;
         }
- 
+        
         spaBuffer = pipeWireBuffer->buffer;
         if (spaBuffer->datas[0].data == NULL)
                 return;
         
         n_channels = data->format.info.raw.channels;
-
+        
         n_samples = spaBuffer->datas[0].chunk->size / sizeof(float) / n_channels;
         if (n_samples > global.mostCapturedSamples) global.mostCapturedSamples = n_samples;
         if (getBufferWriteSpace(&global.allBuffer) >= n_samples)
@@ -73,15 +73,14 @@ static void on_process(void *userData)
             // printw("d");
         }
         // writeBuffer(&global.allBuffer, (uint8_t*)buf->datas[0].data, 0, n_samples);
-
-
- 
+        
+        
         /* move cursor up */
         static int64_t frame = 0;
         
         data->move = true;
         // fflush(stdout);
- 
+        
         pw_stream_queue_buffer(data->stream, pipeWireBuffer);
 }
  
@@ -96,18 +95,18 @@ void on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *par
         /* NULL means to clear the format */
         if (param == NULL || id != SPA_PARAM_Format)
                 return;
- 
+                
         if (spa_format_parse(param, &data->format.media_type, &data->format.media_subtype) < 0)
                 return;
- 
+                
         /* only accept raw audio */
         if (data->format.media_type != SPA_MEDIA_TYPE_audio ||
             data->format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
                 return;
- 
+                
          /* call a helper function to parse the format for us. */
         spa_format_audio_raw_parse(param, &data->format.info.raw);
-
+        
         
         if (global.sampleRate != data->format.info.raw.rate)
         {

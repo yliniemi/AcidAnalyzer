@@ -49,6 +49,28 @@ void initializeBuffer(struct RingBuffer *rb, int64_t numberOfBuffers, int64_t si
     initializeBufferWithChunksSize(rb, numberOfBuffers, size, elementSize, 0);
 }
 
+void increaseNumberOfBuffers(struct RingBuffer *rb, int64_t newNumberOfBuffers)
+{
+    if (rb->numberOfBuffers >= newNumberOfBuffers) return;
+    uint8_t **oldBuffers = rb->buffers;
+    uint8_t **newBuffers = calloc(newNumberOfBuffers, sizeof(uint8_t*));
+    memcpy(rb->buffers, newBuffers, sizeof(uint8_t*) * rb->numberOfBuffers);
+    rb->buffers = newBuffers;
+    
+    for (int64_t i = rb->numberOfBuffers; i < newNumberOfBuffers; i++)
+    {
+        rb->buffers[i] = (uint8_t*)calloc(rb->size * rb->elementSize, sizeof(uint8_t));
+        if (rb->buffers[i] == NULL)
+        {
+            // printw("failed to initialize one of the buffers\n");
+            // refresh();
+        }
+    }
+    
+    rb->numberOfBuffers = newNumberOfBuffers;
+    free(oldBuffers);     // this will cause issues. I need to implement a delayed free that is done in another thread that consumes this data
+}
+
 bool isBufferEmpty(struct RingBuffer* rb)
 {
     return (rb->writeIndex == rb->readIndex);

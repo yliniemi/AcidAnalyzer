@@ -42,3 +42,7 @@ int64_t readChunkFromBuffer(struct RingBuffer *rb, uint8_t *destination, int64_t
 
 void freeBuffer(struct RingBuffer* rb);
 
+void increaseNumberOfBuffers(struct RingBuffer *rb, int64_t newNumberOfBuffers);
+
+
+

@@ -3,6 +3,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <math.h>
+#include <complex.h>
+#include <fftw3.h>
+
 struct FFTData
 {
     double *audio;
@@ -40,5 +44,28 @@ double smootherStep(double x);
 double getRefreshRate();
 
 double nextBin(double currentBin, double ratio);
+
+struct ChannelData
+{
+    int64_t FFTsize;
+    double *windowingArray;
+    double *audioData;
+    double *windowedAudio;
+    fftw_plan plan;
+    fftw_complex *complexFFT;
+    fftw_complex *complexPower;
+    double *realPower;
+    double *bands;
+    double *log10Bands;
+};
+
+struct AllChannelData
+{
+    int64_t numberOfChannels;
+    int64_t maxNumberOfChannelsEver;
+    double *sharedWindowingArray;
+    struct ChannelData **channelDataArray;
+};
+
 
 

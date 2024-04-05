@@ -23,6 +23,8 @@
 #define NUM_BARS 320
 // #define DUMMY_NOISE
 
+#define ABSOLUTE_MAXIMUM_CHANNELS 1024
+
 struct Global
 {
     struct RingBuffer allBuffer;
@@ -30,7 +32,8 @@ struct Global
     int64_t channels;
     double fps;
     int64_t FFTsize;
-    int64_t threadsPerChannel;
+    // int64_t threadsPerChannel;
+    double windowingArray;
     double kaiserBeta;
     double dynamicRange;
     int64_t bufferExtra;
@@ -78,7 +81,7 @@ void setGobalDefaults()
     global.channels = 1;
     global.fps = 120;
     global.FFTsize = 6144;
-    global.threadsPerChannel = 1;
+    // global.threadsPerChannel = 1;
     global.dynamicRange = 5.5;      // Bels, not desiBels
     global.kaiserBeta = 6.0 * PI;
     global.bufferExtra = 2 * 48000;
