@@ -33,7 +33,7 @@ struct Global
     double fps;
     int64_t FFTsize;
     // int64_t threadsPerChannel;
-    double windowingArray;
+    // double windowingArray;
     double kaiserBeta;
     double dynamicRange;
     int64_t bufferExtra;
@@ -43,7 +43,7 @@ struct Global
     bool usingGlfw;
     int64_t numBars;
     int64_t colors[2][3];
-    int64_t openglVersion;
+    // int64_t openglVersion;
     bool dummyNoise;
     int64_t mostCapturedSamples;
     int64_t leastReadSamples;
@@ -90,7 +90,6 @@ void setGobalDefaults()
     global.usingNcurses = false;
     global.usingGlfw = true;
     global.numBars = 320;
-    global.openglVersion = 3;
     global.dummyNoise = true;
     global.mostCapturedSamples = 0;
     global.leastReadSamples = 1000000000;

@@ -28,13 +28,14 @@
 #include <sys/ioctl.h>
 #include <stdlib.h>
 
-#include <pthread.h>
+// #include <pthread.h>
+#include <semaphore.h>
 #include <string.h>
 
 extern struct Global global;
 
-extern struct FFTData FFTdata;
-struct FFTData FFTdata;
+// extern struct FFTData FFTdata;
+// struct FFTData FFTdata;
 
 pthread_t readAudioBuffer;
 
@@ -155,18 +156,32 @@ void logBands(double *bands, double *logBands, int64_t n_bands, int64_t starting
   }
 }
 
+void channelAnalysis(struct ChannelData *channelData, struct AllChannelData *allChannelData)
+{
+    readChunkFromBuffer(&global.allBuffer, (uint8_t*)channelData->audioData, channelData->channelNumber);
+    multiplyArrays(channelData->audioData, allChannelData->windowingArray, channelData->windowedAudio, allChannelData->FFTsize);  // windowing
+    fftw_execute(channelData->plan);
+    multiplyArrays((double*)channelData->complexFFT, (double*)channelData->complexFFT, (double*)channelData->complexPower, allChannelData->FFTsize);  // these two steps turn co complex numbers
+    complexPowerToRealPower(channelData->complexPower, channelData->realPower, allChannelData->FFTsize / 2);  // into the power of the lenght of ampltude
+    zeroSmallBins(channelData->realPower, allChannelData->FFTsize / 2, 1.0 / (pow(10, global.dynamicRange + 0.3)));
+    powTwoBands(channelData->realPower, channelData->bands, global.numBars, allChannelData->firstBin, allChannelData->ratio);
+    logBands(channelData->bands, channelData->log10Bands, global.numBars, allChannelData->firstBin, allChannelData->ratio);
+    normalizeLogBands(channelData->log10Bands, global.numBars, global.dynamicRange);
+}
+
+
 void allocateChannelData(struct ChannelData *channelData, int64_t FFTsize)
 {
-    channelData->FFTsize = FFTsize;
-    channelData->windowingArray = &global.windowingArray;
-    channelData->audioData = (double*) malloc(sizeof(double) * channelData->FFTsize);
-    channelData->windowedAudio = (double*) fftw_malloc(sizeof(double) * channelData->FFTsize);
-    channelData->complexFFT = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * channelData->FFTsize);
-    channelData->complexPower = (fftw_complex*) malloc(sizeof(fftw_complex) * channelData->FFTsize);
-    channelData->realPower = (double*) malloc(sizeof(double) * channelData->FFTsize);
-    channelData->bands = (double*) malloc(sizeof(double) * channelData->FFTsize);
-    channelData->log10Bands = (double*) malloc(sizeof(double) * channelData->FFTsize);
-    channelData->plan = fftw_plan_dft_r2c_1d(channelData->FFTsize, channelData->windowedAudio, channelData->complexFFT, FFTW_ESTIMATE);
+    // channelData->FFTsize = FFTsize;
+    // channelData->windowingArray = &global.windowingArray;
+    channelData->audioData = (double*) malloc(sizeof(double) * FFTsize);
+    channelData->windowedAudio = (double*) fftw_malloc(sizeof(double) * FFTsize);
+    channelData->complexFFT = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * FFTsize);
+    channelData->complexPower = (fftw_complex*) malloc(sizeof(fftw_complex) * FFTsize);
+    channelData->realPower = (double*) malloc(sizeof(double) * FFTsize);
+    channelData->bands = (double*) malloc(sizeof(double) * FFTsize);
+    channelData->log10Bands = (double*) malloc(sizeof(double) * FFTsize);
+    channelData->plan = fftw_plan_dft_r2c_1d(FFTsize, channelData->windowedAudio, channelData->complexFFT, FFTW_ESTIMATE);
 }
 
 void increaseNumberOfChannels(struct AllChannelData *allChannelData, int64_t newNumberOfChannels)
@@ -186,12 +201,13 @@ void increaseNumberOfChannels(struct AllChannelData *allChannelData, int64_t new
             // refresh();
         }
         allocateChannelData(allChannelData->channelDataArray[i], global.FFTsize);
-        allChannelData->channelDataArray[i]->FFTsize = global.FFTsize;
-        allChannelData->channelDataArray[i]->windowingArray = allChannelData->sharedWindowingArray;
+        allChannelData->channelDataArray[i]->channelNumber = i;
+        // allChannelData->channelDataArray[i]->FFTsize = global.FFTsize;
+        // allChannelData->channelDataArray[i]->windowingArray = allChannelData->sharedWindowingArray;
     }
     
     allChannelData->maxNumberOfChannelsEver = newNumberOfChannels;
-    allChannelData->numberOfChannels = newNumberOfChannels;
+    // allChannelData->numberOfChannels = newNumberOfChannels;
     free(oldChannelDataArray);
 }
 
@@ -212,12 +228,17 @@ void* threadFunction(void* arg)
     double *audio = (double*) malloc(sizeof(double) * global.FFTsize);
     */
     
+    printf("sizeof(pthread_t) = %lld", sizeof(pthread_t));
+    
     struct AllChannelData allChannelData;
     allChannelData.numberOfChannels = 0;
     allChannelData.maxNumberOfChannelsEver = 0;
     
-    allChannelData.sharedWindowingArray = (double*) malloc(sizeof(double) * global.FFTsize);
-    generateKaiserWindow(global.FFTsize, KAISER_BETA, allChannelData.sharedWindowingArray);
+    allChannelData.windowingArray = (double*) malloc(sizeof(double) * global.FFTsize);
+    generateKaiserWindow(global.FFTsize, KAISER_BETA, allChannelData.windowingArray);
+    allChannelData.ratio = 0;
+    allChannelData.firstBin = 3;
+    allChannelData.FFTsize = global.FFTsize;
     
     if (global.usingNcurses)
     {
@@ -237,9 +258,10 @@ void* threadFunction(void* arg)
     
     while(true)
     {
-        if (global.channels > allChannelData.maxNumberOfChannelsEver)
+        allChannelData.numberOfChannels = global.channels;
+        if (allChannelData.numberOfChannels > allChannelData.maxNumberOfChannelsEver)
         {
-            increaseNumberOfChannels(&allChannelData, global.channels);
+            increaseNumberOfChannels(&allChannelData, allChannelData.numberOfChannels);
         }
         
         if (global.allBuffer.buffers != NULL)
@@ -247,8 +269,6 @@ void* threadFunction(void* arg)
             struct winsize w;
             ioctl(0, TIOCGWINSZ, &w);
             static int64_t windowRows = 0;
-            static double ratio = 0;
-            static int64_t startingPoint = 3;
             static int64_t oldSampleRate = 1;
             static int64_t frameNumber = 0;
             bool updatedSomething = false;
@@ -270,11 +290,10 @@ void* threadFunction(void* arg)
                 if (global.sampleRate != oldSampleRate) increaseBufferReadIndex(&global.allBuffer, 1000000000000);
                 oldSampleRate = global.sampleRate;
                 oldNumBars = global.numBars;
-                startingPoint = max(global.minFrequency * global.FFTsize / global.sampleRate + 1, 3);
-                FFTdata.firstBin = startingPoint;
-                printf("startingPoint = %lld\n", startingPoint);
+                allChannelData.firstBin = max(global.minFrequency * global.FFTsize / global.sampleRate + 1, 3);
+                printf("firstBin = %lld\n", allChannelData.firstBin);
                 int64_t lastBin = min(global.FFTsize / 2, global.maxFrequency * global.FFTsize / global.sampleRate);
-                FFTdata.lastBin = lastBin;
+                allChannelData.lastBin = lastBin;
                 /*
                 printw("\nstartingPoint = %lld, bins = %lld, columns = %lld", startingPoint, lastBin, global.numBars);
                 refresh();
@@ -282,19 +301,18 @@ void* threadFunction(void* arg)
                 struct timespec req = {30, 0};
                 nanosleep(&req, &rem);
                 */
-                ratio = findRatio(60, 1, 2, 1, startingPoint, lastBin, global.numBars);
-                FFTdata.ratio = ratio;
-                if (lastBin - startingPoint < global.numBars) global.numBars = lastBin - startingPoint;
-                double intermediaryBin = startingPoint;
+                allChannelData.ratio = findRatio(60, 1, 2, 1, allChannelData.firstBin, lastBin, global.numBars);
+                if (lastBin - allChannelData.firstBin < global.numBars) global.numBars = lastBin - allChannelData.firstBin;
+                double intermediaryBin = allChannelData.firstBin;
                 for (int64_t i = 1; i < global.numBars; i++)
                 {
                     // intermediaryBin += floor((intermediaryBin * ratio) + 1.0);
-                    intermediaryBin = nextBin(intermediaryBin, ratio);
+                    intermediaryBin = nextBin(intermediaryBin, allChannelData.ratio);
                 }
-                FFTdata.secondToLastBin = intermediaryBin;
-                lastBin = nextBin(intermediaryBin, ratio);
-                printf("lastBin = %lld or %lld or %lld\n", FFTdata.lastBin,  lastBin, (int64_t)checkRatio(FFTdata.firstBin, FFTdata.ratio, global.numBars));
-                FFTdata.lastBin = lastBin;
+                allChannelData.secondToLastBin = intermediaryBin;
+                lastBin = nextBin(intermediaryBin, allChannelData.ratio);
+                // printf("lastBin = %lld or %lld or %lld\n", FFTdata.lastBin,  lastBin, (int64_t)checkRatio(FFTdata.firstBin, FFTdata.ratio, global.numBars));
+                allChannelData.lastBin = lastBin;
                 updatedSomething = true;
             }
             if (w.ws_row != windowRows)
@@ -332,45 +350,36 @@ void* threadFunction(void* arg)
             if (bufferDepth > global.maxBufferDept) global.maxBufferDept = bufferDepth;
             // printw("s");
             frameNumber++;
-            if (global.usingGlfw) startFrame();
+            
             
             for (int64_t channel = 0; channel < allChannelData.numberOfChannels; channel++)
             {
-                struct ChannelData *channelData = allChannelData.channelDataArray[channel];
-                readChunkFromBuffer(&global.allBuffer, (uint8_t*)channelData->audioData, channel);
-                multiplyArrays(channelData->audioData, channelData->windowingArray, channelData->windowedAudio, channelData->FFTsize);  // windowing
-                fftw_execute(channelData->plan);
-                multiplyArrays((double*)channelData->complexFFT, (double*)channelData->complexFFT, (double*)channelData->complexPower, channelData->FFTsize);  // these two steps turn co complex numbers
-                complexPowerToRealPower(channelData->complexPower, channelData->realPower, channelData->FFTsize / 2);  // into the power of the lenght of ampltude
-                zeroSmallBins(channelData->realPower, channelData->FFTsize / 2, 1.0 / (pow(10, global.dynamicRange + 0.3)));
-                powTwoBands(channelData->realPower, channelData->bands, global.numBars, startingPoint, ratio);
-                logBands(channelData->bands, channelData->log10Bands, global.numBars, startingPoint, ratio);
-                normalizeLogBands(channelData->log10Bands, global.numBars, global.dynamicRange);
-                color_set(1, NULL);
-                if (global.channels == 2 && channel == 1)
+                
+                channelAnalysis(allChannelData.channelDataArray[channel], &allChannelData);
+                
+                // color_set(1, NULL);
+            }
+            
+            if (global.usingGlfw)
+            {
+                glfwSpectrum(&allChannelData);
+            }
+            
+            if (global.usingNcurses)
+            {
+                for (int64_t channel = 0; channel < allChannelData.numberOfChannels; channel++)
                 {
-                    if (global.usingGlfw)
-                    {
-                        glfwSpectrum(channelData->log10Bands, global.numBars, global.barWidth, allChannelData.numberOfChannels, channel, false, false);
-                    }
-                    if (global.usingNcurses)
+                    struct ChannelData *channelData = allChannelData.channelDataArray[channel];
+                    
+                    if (global.channels == 2 && channel == 1)
                     {
                         drawSpectrum(channelData->log10Bands, global.numBars, max(w.ws_row, 3) / allChannelData.numberOfChannels, max(w.ws_row, 3) / global.channels * channel, false);
                     }
-                }
-                else
-                {
-                    if (global.usingGlfw)
-                    {
-                        glfwSpectrum(channelData->log10Bands, global.numBars, global.barWidth, allChannelData.numberOfChannels, channel, true, false);
-                    }
-                    if (global.usingNcurses)
+                    else
                     {
                         drawSpectrum(channelData->log10Bands, global.numBars, max(w.ws_row, 3) / allChannelData.numberOfChannels, max(w.ws_row, 3) / global.channels * channel, true);
                     }
                 }
-                // printw("%lld", global.channels);
-                // refresh();
             }
             
             
@@ -384,11 +393,11 @@ void* threadFunction(void* arg)
                 {
                     move(w.ws_row - 1, 0);
                     color_set(3, NULL);
-                    printw("fps = %.2f, sample rate = %lld, FFT = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
+                    printw("fps = %.2f, sample rate = %lld, FFT = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, allChannelData.ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
                 }
                 else
                 {
-                    printf("fps = %.2f, sample rate = %lld, FFT = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
+                    printf("fps = %.2f, sample rate = %lld, FFT = %lld, ratio = %f, bars = %lld , capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld\n", actualFPS, global.sampleRate, global.FFTsize, allChannelData.ratio, global.numBars, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept);
                 }
                 printDebug_ns = new_debug_ns;
                 frameNumber = 0;

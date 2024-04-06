@@ -165,7 +165,8 @@ struct RGB HSVToRGB(struct HSV hsv)
 	return rgb;
 }
 
-void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool upright, bool isCircle)
+// void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool upright, bool isCircle)
+void glfwSpectrum(struct AllChannelData *allChannelData)
 {
     double biggestNoiseScale = 0.05;
     double smallestTimeScale = 0.00000000008;
@@ -178,17 +179,26 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
     int64_t delta_time = new_time - old_time;
     if (old_time == 0) delta_time = 0;
     old_time = new_time;
-    if (channel == 0) global.colorStart += global.colorSpeed * delta_time / (double)1000000000;
-    if (!upright && !isCircle)
+    
+    global.colorStart += global.colorSpeed * delta_time / (double)1000000000;
+    
+    startFrame();
+    
+    for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
     {
-        glColor3f(0.8f, 0.8f, 0.8f);
-        bottom = ((channel + 1) / (double)numChannels) * 2 - 1;
+    
+    
+    if (!global.hanging && !(global.barMode == CIRCLE))
+    {
+        // glColor3f(0.8f, 0.8f, 0.8f);
+        bottom = ((channel + 1) / (double)allChannelData->numberOfChannels) * 2 - 1;
     }
     else
     {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        bottom = (channel / (double)numChannels) * 2 - 1;
+        // glColor3f(1.0f, 1.0f, 1.0f);
+        bottom = (channel / (double)allChannelData->numberOfChannels) * 2 - 1;
     }
+    
     
     /*
     if (global.barMode == WAVE && numChannels < 3)
@@ -219,25 +229,28 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
     }
     */
     
-    int64_t secondBin = nextBin(FFTdata.firstBin, FFTdata.ratio);
-    double firstBinLog = log2(sqrt(FFTdata.firstBin * (secondBin - 1)));
-    // double lastBinLog = log2(FFTdata.lastBin);
-    double secondToLastBinLog = log2(sqrt(FFTdata.secondToLastBin * (FFTdata.lastBin - 1)));
-    int64_t currentBin = FFTdata.firstBin;
-    for (int64_t barIndex = 0; barIndex < numBars; barIndex++)
+    int64_t secondBin = nextBin(allChannelData->firstBin, allChannelData->ratio);
+    double firstBinLog = log2(sqrt(allChannelData->firstBin * (secondBin - 1)));
+    // double lastBinLog = log2(AllChannelData.lastBin);
+    double secondToLastBinLog = log2(sqrt(allChannelData->secondToLastBin * (allChannelData->lastBin - 1)));
+    int64_t currentBin = allChannelData->firstBin;
+    
+    double *log10bands = allChannelData->channelDataArray[channel]->log10Bands;
+    
+    for (int64_t barIndex = 0; barIndex < global.numBars; barIndex++)
     {
-        int64_t nextBinResult = nextBin(currentBin, FFTdata.ratio);
-        int64_t nextNextBin = nextBin(nextBinResult, FFTdata.ratio);
+        int64_t nextBinResult = nextBin(currentBin, allChannelData->ratio);
+        int64_t nextNextBin = nextBin(nextBinResult, allChannelData->ratio);
         
-        if (global.wave && barIndex >= numBars - 1) goto skip;
-        double barHeigthLeft = soundArray[barIndex];
+        if (global.wave && barIndex >= global.numBars - 1) goto skip;
+        double barHeigthLeft = log10bands[barIndex];
         double barHeigthRight = barHeigthLeft;
-        double leftBarEdgeLocation = (barIndex + 0.5 - barWidth * 0.5) / (double)numBars;
-        double rightBarEdgeLocation = (barIndex + 0.5 + barWidth * 0.5) / (double)numBars;
+        double leftBarEdgeLocation = (barIndex + 0.5 - global.barWidth * 0.5) / (double)global.numBars;
+        double rightBarEdgeLocation = (barIndex + 0.5 + global.barWidth * 0.5) / (double)global.numBars;
         
         if (global.wave)
         {
-            barHeigthRight = soundArray[barIndex + 1];
+            barHeigthRight = log10bands[barIndex + 1];
             leftBarEdgeLocation = (log2(sqrt(currentBin * (nextBinResult - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
             rightBarEdgeLocation = (log2(sqrt(nextBinResult * (nextNextBin - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
         }
@@ -264,13 +277,13 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 global.colorBrightness});
         // glColor3f(rgb.R, rgb.G, rgb.B);
         
-        double left = (barIndex + 0.5 - barWidth * 0.5) / (double)numBars * 2 - 1;
-        double right = (barIndex + 0.5 + barWidth * 0.5) / (double)numBars * 2 - 1;
+        double left = (barIndex + 0.5 - global.barWidth * 0.5) / (double)global.numBars * 2 - 1;
+        double right = (barIndex + 0.5 + global.barWidth * 0.5) / (double)global.numBars * 2 - 1;
         double top;
-        if (upright) top = bottom + barHeigthLeft * 2 / numChannels;
-        else top = bottom - barHeigthLeft * 2 / numChannels;
+        if (!global.hanging) top = bottom + barHeigthLeft * 2 / allChannelData->numberOfChannels;
+        else top = bottom - barHeigthLeft * 2 / allChannelData->numberOfChannels;
         
-        if (global.barMode == CIRCLE && numChannels < 3)
+        if (global.barMode == CIRCLE && allChannelData->numberOfChannels < 3)
         {
             if (global.hanging)
             {
@@ -304,7 +317,9 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
             glEnd();
             */
             
-            if (global.openglVersion < 3)
+            
+            // if (global.openglVersion < 3)
+            if (false)
             {
                 glBegin(GL_QUADS);
                 glColor4f(rightRgb.R, rightRgb.G, rightRgb.B, 0);
@@ -319,6 +334,8 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 glEnd();
             }
             else
+            
+            
             {
                 GLfloat vertices[4 * 2] =
                 {
@@ -346,7 +363,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
                 glColorPointer(3, GL_FLOAT, 0, colors);
             }
         }
-        else if (global.barMode == BAR && numChannels < 3)
+        else if (global.barMode == BAR && allChannelData->numberOfChannels < 3)
         {
             double xSizeRatio = pow(1.01, xSizeInt);
             if (channel == 0)
@@ -405,6 +422,7 @@ void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t 
             glEnd();
         }
     skip:;
+    }
     }
 }
 
