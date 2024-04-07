@@ -21,14 +21,14 @@ find_package(OpenGL REQUIRED)
 
 pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ../../glfw/include ../../glfw/deps ../../OpenSimplex2/_old/c)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src ../glfw/include ../glfw/deps ../OpenSimplex2/_old/c)
 link_libraries(PkgConfig::PIPEWIRE m fftw3 fftw3_threads ncursesw pthread glfw OpenGL::GL)
 
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${ALSA_LIBRARIES_DIR})
 # link_libraries(PkgConfig::PIPEWIRE m fftw3 fftw3_threads ncursesw pthread ${ALSA_LIBRARIES})
 
-add_executable(${PROJECT_NAME} main.c kaiser.c ringBuffer.c drawNcurses.c properFFTalgorithm.c defaults.h nanoTime.c drawGLFW.c ../../OpenSimplex2/_old/c/OpenSimplex2F.c approxFunctions.c readPipewire.c dummyAudio.c)
-add_executable(test test.c kaiser.c ringBuffer.c drawNcurses.c properFFTalgorithm.c defaults.h nanoTime.c drawGLFW.c ../../OpenSimplex2/_old/c/OpenSimplex2F.c approxFunctions.c readPipewire.c dummyAudio.c)
+add_executable(${PROJECT_NAME} src/main.c src/kaiser.c src/ringBuffer.c src/drawNcurses.c src/properFFTalgorithm.c src/defaults.h src/nanoTime.c src/drawGLFW.c ../OpenSimplex2/_old/c/OpenSimplex2F.c src/approxFunctions.c src/readPipewire.c src/dummyAudio.c)
+add_executable(test src/test.c src/kaiser.c src/ringBuffer.c src/drawNcurses.c src/properFFTalgorithm.c src/defaults.h src/nanoTime.c src/drawGLFW.c ../OpenSimplex2/_old/c/OpenSimplex2F.c src/approxFunctions.c src/readPipewire.c src/dummyAudio.c)
 
 # Enable multithreading in FFTW
 # add_definitions(-DFFTW_ENABLE_THREADS)
