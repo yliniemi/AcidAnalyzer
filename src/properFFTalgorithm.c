@@ -432,11 +432,11 @@ void* threadFunction(void* arg)
                 {
                     move(w.ws_row - 1, 0);
                     color_set(3, NULL);
-                    printw("capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld, normalizer = %f\n", global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept, allChannelData.normalizerBar);
+                    printw("fps = %.2f, capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld, normalizer = %f\n", actualFPS, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept, allChannelData.normalizerBar);
                 }
                 else
                 {
-                    printf("capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld, normalizer = %f\n", global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept, allChannelData.normalizerBar);
+                    printf("fps = %.2f, capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld, normalizer = %f\n", actualFPS, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept, allChannelData.normalizerBar);
                 }
                 printDebug_ns = new_debug_ns;
                 frameNumber = 0;
