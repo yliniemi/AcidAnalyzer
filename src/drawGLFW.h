@@ -8,25 +8,63 @@
 #include <fftw3.h>
 
 #include <pthread.h>
+#include <semaphore.h>
 
-/*
-struct FFTData
+struct Vector2D
 {
-    double *audio;
-    double *real_in;
-    double *windowingArray;
-    // fftw_complex *complex_out;
-    // fftw_complex *complexPower;
-    double *realPower;
-    double *bands_out;
-    double *log10_bands;
-    
-    double ratio;
+    double x;
+    double y;
 };
 
+struct Line2D
+{
+    struct Vector2D start;
+    struct Vector2D end;
+};
 
-extern struct FFTData FFTdata;
-*/
+struct Vector3D
+{
+    double x;
+    double y;
+    double z;
+};
+
+struct XYZ
+{
+    float x, y, z;
+};
+
+struct RGBA
+{
+    float r, g, b, a;
+};
+
+struct Vertex
+{
+    struct XYZ xyz;
+    struct RGBA rgba;
+};
+
+struct RGB
+{
+	double r;
+	double g;
+	double b;
+};
+
+struct HSV
+{
+	double h;
+	double s;
+	double v;
+};
+
+struct Edge
+{
+    double location;
+    double height;
+    struct RGB color;
+};
 
 struct ChannelData
 {
@@ -41,6 +79,9 @@ struct ChannelData
     double *bands;
     double *log10Bands;
     pthread_t thread;
+    struct Edge *edge;
+    struct Vertex *vertex;
+    double highestBar;
 };
 
 struct AllChannelData
@@ -54,6 +95,7 @@ struct AllChannelData
     int64_t lastBin;
     int64_t secondToLastBin;
     double *windowingArray;
+    double normalizerBar;
     // double *sharedWindowingArray;
     struct ChannelData **channelDataArray;
 };

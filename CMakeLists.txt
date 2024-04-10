@@ -14,7 +14,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # set(CMAKE_C_EXTENSIONS OFF)
 
 find_package(PkgConfig REQUIRED)
-find_package(glfw3 REQUIRED)
+# find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
 # find_package(glad REQUIRED)
 # find_package(ALSA REQUIRED)

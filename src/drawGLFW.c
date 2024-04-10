@@ -24,9 +24,12 @@
 // #include <ncurses.h>
 #include <drawNcurses.h>
 
+#include <stddef.h> // Include the header file for offsetof
+
 #ifndef PI
 #define PI 3.14159265358979323846264338328
 #endif
+
 
 #include <defaults.h>
 extern struct Global global;
@@ -38,9 +41,8 @@ static int64_t currentNanoTime = 0;
 static double sizeRatio = 1.0;
 static double xRatio = 1.0;
 static double yRatio = 1.0;
+static double minRatio = 1.0;
 
-static double offsetX = 0.0;
-static double offsetY = 0.0;
 static int64_t errorX = 0;
 static int64_t errorY = 0;
 
@@ -48,19 +50,34 @@ static int64_t sizeInt = 0;
 static int64_t xSizeInt = 0;
 static double emptyCircleRatio = 0.2;
 
+static struct Line2D centralLine = {{0.5, 0}, {0.5, 1}};
+
+static struct Vector2D offset = {0, 0};
+
+
+double fmin(double a, double b)
+{
+    return a < b ? a : b;
+}
+
+double fmax(double a, double b)
+{
+    return a > b ? a : b;
+}
+
 double nextBin(double currentBin, double ratio)
 {
     return floor(currentBin * ratio + 1.0);
 }
 
-float properSin(float ratioAngle)
+double properSin(double ratioAngle)
 {
-    return sinf(ratioAngle * 2 * PI);
+    return sin(ratioAngle * 2 * PI);
 }
 
-float properCos(float ratioAngle)
+double properCos(double ratioAngle)
 {
-    return cosf(ratioAngle * 2 * PI);
+    return cos(ratioAngle * 2 * PI);
 }
 
 double smoothStep(double x)
@@ -73,96 +90,198 @@ double lerp(double a, double b, double f)
     return (a * (1.0 - f)) + (b * f);
 }
 
+struct Vector2D lerp2d(struct Vector2D a, struct Vector2D b, double f) 
+{
+    struct Vector2D result;
+    result.x = lerp(a.x, b.x, f);
+    result.y = lerp(a.y, b.y, f);
+    return result;
+}
+
+struct Vector2D add2d(struct Vector2D a, struct Vector2D b) 
+{
+    struct Vector2D result;
+    result.x = a.x + b.x;
+    result.y = a.y + b.y;
+    return result;
+}
+
+struct Vector2D substract2d(struct Vector2D a, struct Vector2D b) 
+{
+    struct Vector2D result;
+    result.x = a.x - b.x;
+    result.y = a.y - b.y;
+    return result;
+}
+
+struct Vector2D addPortion2d(struct Vector2D a, struct Vector2D b, double f) 
+{
+    struct Vector2D result;
+    result.x = a.x + b.x * f;
+    result.y = a.y + b.y * f;
+    return result;
+}
+
+struct Vector3D lerp3d(struct Vector3D a, struct Vector3D b, double f) 
+{
+    struct Vector3D result;
+    result.x = lerp(a.x, b.x, f);
+    result.y = lerp(a.y, b.y, f);
+    result.z = lerp(a.z, b.z, f);
+    return result;
+}
+
 double smootherStep(double x)
 {
    return x * x * x * (x * (6.0 * x - 15.0) + 10.0);
 }
 
-struct RGB
-{
-	double R;
-	double G;
-	double B;
-};
-
-struct HSV
-{
-	double H;
-	double S;
-	double V;
-};
-
 struct RGB HSVToRGB(struct HSV hsv)
 {
 	struct RGB rgb;
-	hsv.H = fmod(hsv.H, 1.0);
-	if (hsv.H < 0) hsv.H += 1;
-	if (hsv.S <= 0)
+	hsv.h = fmod(hsv.h, 1.0);
+	if (hsv.h < 0) hsv.h += 1;
+	if (hsv.s <= 0)
 	{
-		rgb.R = hsv.V;
-		rgb.G = hsv.V;
-		rgb.B = hsv.V;
+		rgb.r = hsv.v;
+		rgb.g = hsv.v;
+		rgb.b = hsv.v;
 	}
 	else
 	{
 		int i;
 		double f, p, q, t;
-		if (hsv.S > 1.0) hsv.S = 1.0; 
+		if (hsv.s > 1.0) hsv.s = 1.0; 
 
-		if (hsv.H <= 0)
-			hsv.H = 0;
+		if (hsv.h <= 0)
+			hsv.h = 0;
 		else
 		{
-			hsv.H = fmod(hsv.H, 1.0);
+			hsv.h = fmod(hsv.h, 1.0);
 		}
 
-		i = (int)trunc(hsv.H * 6.0);
-		f = hsv.H * 6.0 - i;
+		i = (int)trunc(hsv.h * 6.0);
+		f = hsv.h * 6.0 - i;
 
-		p = hsv.V * (1.0 - hsv.S);
-		q = hsv.V * (1.0 - (hsv.S * f));
-		t = hsv.V * (1.0 - (hsv.S * (1.0 - f)));
+		p = hsv.v * (1.0 - hsv.s);
+		q = hsv.v * (1.0 - (hsv.s * f));
+		t = hsv.v * (1.0 - (hsv.s * (1.0 - f)));
 
 		switch (i)
 		{
 		case 0:
-			rgb.R = hsv.V;
-			rgb.G = t;
-			rgb.B = p;
+			rgb.r = hsv.v;
+			rgb.g = t;
+			rgb.b = p;
 			break;
 
 		case 1:
-			rgb.R = q;
-			rgb.G = hsv.V;
-			rgb.B = p;
+			rgb.r = q;
+			rgb.g = hsv.v;
+			rgb.b = p;
 			break;
 
 		case 2:
-			rgb.R = p;
-			rgb.G = hsv.V;
-			rgb.B = t;
+			rgb.r = p;
+			rgb.g = hsv.v;
+			rgb.b = t;
 			break;
 
 		case 3:
-			rgb.R = p;
-			rgb.G = q;
-			rgb.B = hsv.V;
+			rgb.r = p;
+			rgb.g = q;
+			rgb.b = hsv.v;
 			break;
 
 		case 4:
-			rgb.R = t;
-			rgb.G = p;
-			rgb.B = hsv.V;
+			rgb.r = t;
+			rgb.g = p;
+			rgb.b = hsv.v;
 			break;
 
 		default:
-			rgb.R = hsv.V;
-			rgb.G = p;
-			rgb.B = q;
+			rgb.r = hsv.v;
+			rgb.g = p;
+			rgb.b = q;
 			break;
 		}
 	}
 	return rgb;
+}
+
+void calculateWaveData(struct AllChannelData *allChannelData)
+{
+    int64_t secondBin = nextBin(allChannelData->firstBin, allChannelData->ratio);
+    double firstBinLog = log2(sqrt(allChannelData->firstBin * (secondBin - 1)));
+    double secondToLastBinLog = log2(sqrt(allChannelData->secondToLastBin * (allChannelData->lastBin - 1)));
+    
+    for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
+    {
+        int64_t currentBin = allChannelData->firstBin;
+        
+        struct ChannelData *channelData = allChannelData->channelDataArray[channel];
+        double *log10bands = channelData->log10Bands;
+        for (int64_t barIndex = 0; barIndex < global.numBars; barIndex++)
+        {
+            int64_t nextBinValue = nextBin(currentBin, allChannelData->ratio);
+            
+            struct Edge *edge = &channelData->edge[barIndex + 1];
+            edge->height = (log10bands[barIndex] + global.dynamicRange) / global.dynamicRange;
+            edge->location = (log2(sqrt(currentBin * (nextBinValue - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
+            
+            if (edge->height < global.minBarHeight) edge->height = global.minBarHeight;
+            
+            edge->color = HSVToRGB(
+                    (struct HSV){global.colorStart + edge->location * global.colorRange,
+                    global.colorSaturation,
+                    global.colorBrightness});
+            
+            currentBin = nextBinValue;
+        }
+        struct Edge *edge = &channelData->edge[0];
+        edge->height = 0;
+        edge->location = -1 * channelData->edge[2].location;
+        edge->color = HSVToRGB(
+                    (struct HSV){global.colorStart + edge->location * global.colorRange,
+                    global.colorSaturation,
+                    global.colorBrightness});
+        
+        edge = &channelData->edge[global.numBars + 1];
+        edge->height = 0;
+        edge->location = 2 - channelData->edge[global.numBars - 1].location;
+        // edge->location = 1.3;
+        edge->color = HSVToRGB(
+                    (struct HSV){global.colorStart + edge->location * global.colorRange,
+                    global.colorSaturation,
+                    global.colorBrightness});
+        
+    }
+}
+
+void waveDataToLineVertexData(struct ChannelData *channelData, struct Vector2D startPoint, struct Vector2D endPoint, struct Vector2D barDirection)
+{
+    for (int64_t i = 0; i < global.numBars + 2; i++)
+    {
+        struct Edge *edge = &channelData->edge[i];
+        struct Vertex *vertex0 = &channelData->vertex[i * 2 + 0];
+        struct Vertex *vertex1 = &channelData->vertex[i * 2 + 1];
+        struct Vector2D coordinate = lerp2d(startPoint, endPoint, edge->location);
+        struct Vector2D barTip = addPortion2d(coordinate, barDirection, edge->height);
+        vertex0->xyz.x = coordinate.x;
+        vertex0->xyz.y = coordinate.y;
+        vertex0->xyz.z = 0;
+        vertex0->rgba.r = edge->color.r;
+        vertex0->rgba.g = edge->color.g;
+        vertex0->rgba.b = edge->color.b;
+        vertex0->rgba.a = 1;
+        vertex1->xyz.x = barTip.x;
+        vertex1->xyz.y = barTip.y;
+        vertex1->xyz.z = 0;
+        vertex1->rgba.r = edge->color.r;
+        vertex1->rgba.g = edge->color.g;
+        vertex1->rgba.b = edge->color.b;
+        vertex1->rgba.a = 1;
+    }
 }
 
 // void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool upright, bool isCircle)
@@ -182,249 +301,88 @@ void glfwSpectrum(struct AllChannelData *allChannelData)
     
     global.colorStart += global.colorSpeed * delta_time / (double)1000000000;
     
-    startFrame();
+    if (global.wave == true)
+    {
+        calculateWaveData(allChannelData);
+    }
+    
+    
     
     for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
     {
-    
-    
-    if (!global.hanging && !(global.barMode == CIRCLE))
-    {
-        // glColor3f(0.8f, 0.8f, 0.8f);
-        bottom = ((channel + 1) / (double)allChannelData->numberOfChannels) * 2 - 1;
-    }
-    else
-    {
-        // glColor3f(1.0f, 1.0f, 1.0f);
-        bottom = (channel / (double)allChannelData->numberOfChannels) * 2 - 1;
-    }
-    
-    
-    /*
-    if (global.barMode == WAVE && numChannels < 3)
-    {
-        firstBinLog = log2(global.firstBin);
-        lastBinLog = log2(global.lastBin);
-        int64_t currentBin = global.firstBin;
-        for (int64_t barIndex = 0; barIndex < numBars - 1; barIndex++)
+        if (global.wave == true)
         {
-            int64_t nextBin = currentBin + floor((startingPoint * ratio) + 1.0);
-            double barHeigthLeft = soundArray[barIndex];
-            if (barHeigthLeft < 0) barHeigthLeft = 0;
-            double barHeigthRight = soundArray[barIndex + 1];
-            if (barHeigthRight < 0) barHeigthRight = 0;
-            double leftBarEdgeLocation = (log2(currentBin) - firstBinLog) / (lastBinLog - firstBinLog);
-            double rightBarEdgeLocation = (log2(nextBin) - firstBinLog) / (lastBinLog - firstBinLog);
-            
-            struct RGB leftRgb = HSVToRGB(
-                    (struct HSV){global.colorStart + leftBarEdgeLocation * global.colorRange,
-                    global.colorSaturation,
-                    global.colorBrightness});
-            struct RGB rightRgb = HSVToRGB(
-                    (struct HSV){global.colorStart + rightBarEdgeLocation * global.colorRange,
-                    global.colorSaturation,
-                    global.colorBrightness});
-            // glColor3f(rgb.R, rgb.G, rgb.B);
-        }
-    }
-    */
-    
-    int64_t secondBin = nextBin(allChannelData->firstBin, allChannelData->ratio);
-    double firstBinLog = log2(sqrt(allChannelData->firstBin * (secondBin - 1)));
-    // double lastBinLog = log2(AllChannelData.lastBin);
-    double secondToLastBinLog = log2(sqrt(allChannelData->secondToLastBin * (allChannelData->lastBin - 1)));
-    int64_t currentBin = allChannelData->firstBin;
-    
-    double *log10bands = allChannelData->channelDataArray[channel]->log10Bands;
-    
-    for (int64_t barIndex = 0; barIndex < global.numBars; barIndex++)
-    {
-        int64_t nextBinResult = nextBin(currentBin, allChannelData->ratio);
-        int64_t nextNextBin = nextBin(nextBinResult, allChannelData->ratio);
-        
-        if (global.wave && barIndex >= global.numBars - 1) goto skip;
-        double barHeigthLeft = log10bands[barIndex];
-        double barHeigthRight = barHeigthLeft;
-        double leftBarEdgeLocation = (barIndex + 0.5 - global.barWidth * 0.5) / (double)global.numBars;
-        double rightBarEdgeLocation = (barIndex + 0.5 + global.barWidth * 0.5) / (double)global.numBars;
-        
-        if (global.wave)
-        {
-            barHeigthRight = log10bands[barIndex + 1];
-            leftBarEdgeLocation = (log2(sqrt(currentBin * (nextBinResult - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
-            rightBarEdgeLocation = (log2(sqrt(nextBinResult * (nextNextBin - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
-        }
-        currentBin = nextBinResult;
-        if (barHeigthLeft < global.minBarHeight) barHeigthLeft = global.minBarHeight;
-        if (barHeigthRight < global.minBarHeight) barHeigthRight = global.minBarHeight;
-        /*
-        struct RGB leftRgb = HSVToRGB(
-                (struct HSV){lerp(smoothStep(leftBarEdgeLocation), leftBarEdgeLocation, 0.6) * 0.666,
-                global.colorSaturation,
-                1});
-        struct RGB rightRgb = HSVToRGB(
-                (struct HSV){lerp(smoothStep(rightBarEdgeLocation), rightBarEdgeLocation, 0.6) * 0.666,
-                global.colorSaturation,
-                1});
-        */
-        struct RGB leftRgb = HSVToRGB(
-                (struct HSV){global.colorStart + leftBarEdgeLocation * global.colorRange,
-                global.colorSaturation,
-                global.colorBrightness});
-        struct RGB rightRgb = HSVToRGB(
-                (struct HSV){global.colorStart + rightBarEdgeLocation * global.colorRange,
-                global.colorSaturation,
-                global.colorBrightness});
-        // glColor3f(rgb.R, rgb.G, rgb.B);
-        
-        double left = (barIndex + 0.5 - global.barWidth * 0.5) / (double)global.numBars * 2 - 1;
-        double right = (barIndex + 0.5 + global.barWidth * 0.5) / (double)global.numBars * 2 - 1;
-        double top;
-        if (!global.hanging) top = bottom + barHeigthLeft * 2 / allChannelData->numberOfChannels;
-        else top = bottom - barHeigthLeft * 2 / allChannelData->numberOfChannels;
-        
-        if (global.barMode == CIRCLE && allChannelData->numberOfChannels < 3)
-        {
-            if (global.hanging)
+            if (global.barMode == BAR)
             {
-                leftBarEdgeLocation = leftBarEdgeLocation * -1 + 1;
-                rightBarEdgeLocation = rightBarEdgeLocation * -1 + 1;
-            }
-            
-            double leftCos, leftSin, rightCos, rightSin;
-            if (channel == 0)
-            {
-                leftCos = properCos(0.75 - leftBarEdgeLocation / 2 + tilt) * xRatio;
-                leftSin = properSin(0.75 - leftBarEdgeLocation / 2 + tilt) * yRatio;
-                rightCos = properCos(0.75 - rightBarEdgeLocation / 2 + tilt) * xRatio;
-                rightSin = properSin(0.75 - rightBarEdgeLocation / 2 + tilt) * yRatio;
-            }
-            else
-            {
-                leftCos = properCos(0.75 + leftBarEdgeLocation / 2 + tilt) * xRatio;
-                leftSin = properSin(0.75 + leftBarEdgeLocation / 2 + tilt) * yRatio;
-                rightCos = properCos(0.75 + rightBarEdgeLocation / 2 + tilt) * xRatio;
-                rightSin = properSin(0.75 + rightBarEdgeLocation / 2 + tilt) * yRatio;
-            }
-            /*
-            glBegin(GL_QUADS);
-            glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
-            glVertex2f(rightCos * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigth + emptyCircleRatio) + offsetY);
-            // glVertex2f(right, bottom);
-            // glVertex2f(left, bottom);
-            glVertex2f(rightCos * emptyCircleRatio + offsetX, rightSin * emptyCircleRatio + offsetY);
-            glVertex2f(leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY);
-            glEnd();
-            */
-            
-            
-            // if (global.openglVersion < 3)
-            if (false)
-            {
-                glBegin(GL_QUADS);
-                glColor4f(rightRgb.R, rightRgb.G, rightRgb.B, 0);
-                glVertex2f(rightCos * emptyCircleRatio + offsetX, rightSin * emptyCircleRatio + offsetY);
-                glColor4f(leftRgb.R, leftRgb.G, leftRgb.B, 0);
-                glVertex2f(leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY);
-                // glColor4f(1,0,0, 0.5);
-                glColor4f(leftRgb.R, leftRgb.G, leftRgb.B, 1);
-                glVertex2f(leftCos * ((1 - emptyCircleRatio) * barHeigthLeft + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigthLeft + emptyCircleRatio) + offsetY);
-                glColor4f(rightRgb.R, rightRgb.G, rightRgb.B, 1);
-                glVertex2f(rightCos * ((1 - emptyCircleRatio) * barHeigthRight + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigthRight + emptyCircleRatio) + offsetY);
-                glEnd();
-            }
-            else
-            
-            
-            {
-                GLfloat vertices[4 * 2] =
+                struct Vector2D startPoint, endPoint, barDirection;
+                if (channel == 0)
                 {
-                    leftCos * ((1 - emptyCircleRatio) * barHeigthLeft + emptyCircleRatio) + offsetX, leftSin * ((1 - emptyCircleRatio) * barHeigthLeft + emptyCircleRatio) + offsetY,
-                    rightCos * ((1 - emptyCircleRatio) * barHeigthRight + emptyCircleRatio) + offsetX, rightSin * ((1 - emptyCircleRatio) * barHeigthRight + emptyCircleRatio) + offsetY,
-                    leftCos * emptyCircleRatio + offsetX, leftSin * emptyCircleRatio + offsetY,
-                    rightCos * emptyCircleRatio + offsetX, rightSin * emptyCircleRatio + offsetY
-                };
-                GLfloat colors[] =
-                {
-                    leftRgb.R, leftRgb.G, leftRgb.B,
-                    rightRgb.R, rightRgb.G, rightRgb.B,
-                    leftRgb.R, leftRgb.G, leftRgb.B,
-                    rightRgb.R, rightRgb.G, rightRgb.B
-                };
-            
-                GLubyte indices[] = {0,1,2, // first triangle (bottom left - top left - top right)
-                         1,2,3}; // second triangle (bottom left - top right - bottom right)
-                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
-                
-                glEnableClientState(GL_VERTEX_ARRAY);
-                glEnableClientState(GL_COLOR_ARRAY);
-                
-                glVertexPointer(2, GL_FLOAT, 0, vertices);
-                glColorPointer(3, GL_FLOAT, 0, colors);
-            }
-        }
-        else if (global.barMode == BAR && allChannelData->numberOfChannels < 3)
-        {
-            double xSizeRatio = pow(1.01, xSizeInt);
-            if (channel == 0)
-            {
-                leftBarEdgeLocation *= -1 * xSizeRatio;
-                rightBarEdgeLocation *= -1 * xSizeRatio;
-            }
-            if (channel == 1)
-            {
-                leftBarEdgeLocation *= xSizeRatio;
-                rightBarEdgeLocation *= xSizeRatio;
-            }
-                GLfloat vertices[4 * 2] =
-                {
-                    leftBarEdgeLocation + offsetX, barHeigthLeft * 2 * sizeRatio - 1 + offsetY,
-                    rightBarEdgeLocation + offsetX, barHeigthRight * 2 * sizeRatio - 1 + offsetY,
-                    leftBarEdgeLocation + offsetX, -1 + offsetY,
-                    rightBarEdgeLocation + offsetX, -1 + offsetY
-                };
-                if (global.hanging)
-                {
-                    vertices[0] = leftBarEdgeLocation + offsetX;
-                    vertices[1] = barHeigthLeft * -2 * sizeRatio + 1 + offsetY;
-                    vertices[2] = rightBarEdgeLocation + offsetX;
-                    vertices[3] = barHeigthRight * -2 * sizeRatio + 1 + offsetY;
-                    vertices[4] = leftBarEdgeLocation + offsetX;
-                    vertices[5] = 1 + offsetY;
-                    vertices[6] = rightBarEdgeLocation + offsetX;
-                    vertices[7] = 1 + offsetY;
+                    startPoint.x = 0 + offset.x;
+                    startPoint.y = 0 + offset.y;
+                    endPoint.x = 0 + offset.x;
+                    endPoint.y = 1 + offset.y;
+                    barDirection.x = 0.5 * sizeRatio;
+                    barDirection.y = 0;
+                    waveDataToLineVertexData(allChannelData->channelDataArray[channel], startPoint, endPoint, barDirection);
                 }
-                GLfloat colors[] =
+                else if (channel == 1)
                 {
-                    leftRgb.R, leftRgb.G, leftRgb.B,
-                    rightRgb.R, rightRgb.G, rightRgb.B,
-                    leftRgb.R, leftRgb.G, leftRgb.B,
-                    rightRgb.R, rightRgb.G, rightRgb.B
-                };
-            
-                GLubyte indices[] = {0,1,2, // first triangle (bottom left - top left - top right)
-                         1,2,3}; // second triangle (bottom left - top right - bottom right)
-                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+                    startPoint.x = 1 + offset.x;
+                    startPoint.y = 0 + offset.y;
+                    endPoint.x = 1 + offset.x;
+                    endPoint.y = 1 + offset.y;
+                    barDirection.x = -0.5 * sizeRatio;
+                    barDirection.y = 0;
+                    waveDataToLineVertexData(allChannelData->channelDataArray[channel], startPoint, endPoint, barDirection);
+                }
+                else
+                {
+                    startPoint.x = 1;
+                    startPoint.y = 0;
+                    endPoint.x = 1;
+                    endPoint.y = 1;
+                    barDirection.x = -0.5;
+                    barDirection.y = 0;
+                    waveDataToLineVertexData(allChannelData->channelDataArray[channel], startPoint, endPoint, barDirection);
+                }
                 
-                glEnableClientState(GL_VERTEX_ARRAY);
-                glEnableClientState(GL_COLOR_ARRAY);
+            }
+            else if (global.barMode == NEWWAVE)
+            {
+                struct Vector2D barDirection, centralDirection;
+                if (channel == 0)
+                {
+                    centralDirection = substract2d(centralLine.end, centralLine.start);
+                    barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * -0.5;
+                    barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * 0.5;
+                    waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
+                }
+                else if (channel == 1)
+                {
+                    centralDirection = substract2d(centralLine.end, centralLine.start);
+                    barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * 0.5;
+                    barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * -0.5;
+                    waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
+                }
                 
-                glVertexPointer(2, GL_FLOAT, 0, vertices);
-                glColorPointer(3, GL_FLOAT, 0, colors);
+            }
         }
-        else
-        {
-            glBegin(GL_QUADS);
-            glVertex2f(left, top);
-            glVertex2f(right, top);
-            glVertex2f(right, bottom);
-            glVertex2f(left, bottom);
-            glEnd();
-        }
-    skip:;
     }
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
+    {
+        glVertexPointer(2, GL_FLOAT, sizeof(struct Vertex), (GLvoid*)allChannelData->channelDataArray[channel]->vertex);
+        glColorPointer(3, GL_FLOAT, sizeof(struct Vertex), (GLvoid*)allChannelData->channelDataArray[channel]->vertex + 3 * sizeof(GL_FLOAT));
+        
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 2 * (global.numBars + 2));
     }
+    
 }
+
+
 
 static int swap_tear;
 static int swap_interval;
@@ -520,6 +478,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         {
             global.colorStart += 0.5;
         }
+        if (key == GLFW_KEY_Z)
+        {
+            offset.x = 0;
+            offset.y = 0;
+        }
     }
     if (action == GLFW_REPEAT || action == GLFW_PRESS)
     {
@@ -558,6 +521,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     }
 }
 
+
 int cp_x;
 int cp_y;
 int offset_cpx;
@@ -573,19 +537,35 @@ void cursorPositionCallback(GLFWwindow* window, double x, double y){
     }
 }
 
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods){
-    if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+    if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    {
         buttonEvent = 1;
         double x, y;
         glfwGetCursorPos(window, &x, &y);
         cp_x = floor(x);
         cp_y = floor(y);
     }
-    if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){
+    if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+    {
         buttonEvent = 0;
         cp_x = 0;
         cp_y = 0;
     }
+    
+    if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+    {
+        double x, y;
+        int32_t width, height;
+        glfwGetCursorPos(window, &x, &y);
+        glfwGetFramebufferSize(window, &width, &height);
+        centralLine.start.x = x / width;
+        centralLine.start.y = (height - y) / height;
+        offset.x = 0;
+        offset.y = 0;
+    }
+    
 }
 
 double getRefreshRate()
@@ -639,7 +619,7 @@ void postInitializeWindow()
     
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    // glOrtho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f); // left, right, bottom, top, near, far
+    glOrtho(0.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f); // left, right, bottom, top, near, far
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
@@ -703,11 +683,9 @@ void startFrame()
     }
     
     sizeRatio = pow(1.01, sizeInt);
-    xRatio *= sizeRatio;
-    yRatio *= sizeRatio;
-    
-    offsetX = (errorX * 2.0) / width;
-    offsetY = (errorY * 2.0) / height;
+    // xRatio *= sizeRatio;
+    // yRatio *= sizeRatio;
+    minRatio = fmin(xRatio, yRatio);
     
     glViewport(0, 0, width, height);
     glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -723,6 +701,26 @@ void finalizeFrame()
     glfwPollEvents();
     
     frameCount++;
+    
+    currentTime = glfwGetTime();
+    static double lastMovementTime = 0;
+    
+    static struct Vector2D oldCursorPosition = {100000, 100000};
+    struct Vector2D newCursorPosition;
+    glfwGetCursorPos(window, &newCursorPosition.x, &newCursorPosition.y);
+    if (newCursorPosition.x == oldCursorPosition.x && newCursorPosition.y == oldCursorPosition.y)
+    {
+        if (currentTime > lastMovementTime + 5)
+        {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+        }
+    }
+    else
+    {
+        lastMovementTime = currentTime;
+        oldCursorPosition = newCursorPosition;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
     
     if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
     {
@@ -781,7 +779,6 @@ void finalizeFrame()
         postInitializeWindow();
     }
     
-    currentTime = glfwGetTime();
     if (currentTime - lastTime > 10.0)
     {
         frameRate = frameCount / (currentTime - lastTime);
@@ -805,7 +802,25 @@ void finalizeFrame()
         offset_cpy = 0;
         // cp_x += offset_cpx;
         // cp_y += offset_cpy;
+        int32_t width, height;
+        glfwGetWindowSize(window, &width, &height);
+        offset.x = (double)errorX / width;
+        offset.y = (double)errorY / height;
+        
     }
+    
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+    {
+        double x, y;
+        int32_t width, height;
+        glfwGetCursorPos(window, &x, &y);
+        glfwGetFramebufferSize(window, &width, &height);
+        centralLine.end.x = x / width;
+        centralLine.end.y = (height - y) / height;
+    }
+
+    
+    startFrame();
     
     // glfwTerminate();
     // exit(EXIT_SUCCESS);

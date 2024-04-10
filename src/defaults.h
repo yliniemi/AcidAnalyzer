@@ -55,7 +55,8 @@ struct Global
     {
         BAR,
         CIRCLE,
-        WAVE
+        WAVE,
+        NEWWAVE
     } barMode;
     double colorRange;
     double colorSpeed;
@@ -67,6 +68,7 @@ struct Global
     bool wave;
     double minBarHeight;
     bool smoothenAnimation;
+    double decreaseCeilingBelsPerSecond;
 };
 
 extern struct Global global;
@@ -80,34 +82,35 @@ void setGobalDefaults()
     global.sampleRate = 1;
     global.channels = 1;
     global.fps = 120;
-    global.FFTsize = 6144;
+    global.FFTsize = 8192;
     // global.threadsPerChannel = 1;
-    global.dynamicRange = 5.5;      // Bels, not desiBels
+    global.dynamicRange = 4.5;      // Bels, not desiBels
     global.kaiserBeta = 6.0 * PI;
     global.bufferExtra = 2 * 48000;
-    global.minFrequency = 20;
+    global.minFrequency = 40;
     global.maxFrequency = 20000;
     global.usingNcurses = false;
     global.usingGlfw = true;
-    global.numBars = 320;
-    global.dummyNoise = true;
+    global.numBars = 256;
+    global.dummyNoise = false;
     global.mostCapturedSamples = 0;
     global.leastReadSamples = 1000000000;
     global.mostReadSamples = 0;
     global.minBufferDepth = 1000000000;
     global.maxBufferDept = 0;
     global.barWidth = 0.8;
-    global.barMode = BAR;
+    global.barMode = NEWWAVE;
     global.colorRange = 0.15;
-    global.colorSpeed = 0.01;
+    global.colorSpeed = 0.03;
     global.colorSaturation = 1.0;
     global.colorStart = 0.0;
     global.colorBrightness = 1.0;
-    global.colorOpacity = 0.7;
+    global.colorOpacity = 0.85;
     global.hanging = false;
     global.wave = true;
-    global.minBarHeight = 0.02;
+    global.minBarHeight = 0.0;
     global.smoothenAnimation = true;
+    global.decreaseCeilingBelsPerSecond = 0.01;   // 10 seconds for spectrum to rise by 1 desiBels
     
     int64_t defaultColors[2][3] = {{0, 0, 1000}, {300, 300, 1000}};
     for (int64_t i = 0; i < 2; i++)
