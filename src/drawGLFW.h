@@ -119,5 +119,6 @@ double getRefreshRate();
 
 double nextBin(double currentBin, double ratio);
 
+void calculateLocationData(struct AllChannelData *allChannelData);
 
 

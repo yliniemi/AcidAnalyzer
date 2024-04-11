@@ -250,7 +250,7 @@ void* threadFunction(void* arg)
     double *audio = (double*) malloc(sizeof(double) * global.FFTsize);
     */
     
-    printf("sizeof(pthread_t) = %lld", sizeof(pthread_t));
+    // printf("sizeof(pthread_t) = %lld\n", sizeof(pthread_t));
     
     struct AllChannelData allChannelData;
     allChannelData.numberOfChannels = 0;
@@ -310,6 +310,7 @@ void* threadFunction(void* arg)
             static int64_t windowRows = 0;
             static int64_t oldSampleRate = 1;
             static int64_t oldFFTsize = 0;
+            static int64_t oldChannelNumber = 0;
             static int64_t frameNumber = 0;
             bool updatedSomething = false;
             
@@ -317,16 +318,15 @@ void* threadFunction(void* arg)
             
             // if (global.usingGlfw) global.fps = getRefreshRate();
             
-            
-            
             if (global.usingNcurses) global.numBars = w.ws_col;
             
-            if (global.numBars != oldNumBars || global.sampleRate != oldSampleRate || global.FFTsize != oldFFTsize)
+            if (global.numBars != oldNumBars || global.sampleRate != oldSampleRate || global.FFTsize != oldFFTsize || oldChannelNumber != allChannelData.numberOfChannels)
             {
                 if (global.sampleRate != oldSampleRate) increaseBufferReadIndex(&global.allBuffer, 1000000000000);
                 oldSampleRate = global.sampleRate;
                 oldNumBars = global.numBars;
                 oldFFTsize = global.FFTsize;
+                oldChannelNumber = allChannelData.numberOfChannels;
                 allChannelData.firstBin = max(global.minFrequency * global.FFTsize / global.sampleRate, 3);
                 // printf("firstBin = %lld\n", allChannelData.firstBin);
                 int64_t lastBin = min(global.FFTsize / 2, global.maxFrequency * global.FFTsize / global.sampleRate);
@@ -350,6 +350,7 @@ void* threadFunction(void* arg)
                 lastBin = nextBin(intermediaryBin, allChannelData.ratio);
                 // printf("lastBin = %lld or %lld or %lld\n", FFTdata.lastBin,  lastBin, (int64_t)checkRatio(FFTdata.firstBin, FFTdata.ratio, global.numBars));
                 allChannelData.lastBin = lastBin;
+                calculateLocationData(&allChannelData);
                 updatedSomething = true;
                 
                 printf("sample rate = %lld, FFT = %lld, ratio = %f, bars = %lld, bins %lld-%lld\n", global.sampleRate, global.FFTsize, allChannelData.ratio, global.numBars, allChannelData.firstBin, allChannelData.lastBin);
@@ -357,6 +358,7 @@ void* threadFunction(void* arg)
             if (w.ws_row != windowRows)
             {
                 windowRows = w.ws_row;
+                
                 updatedSomething = true;
             }
             

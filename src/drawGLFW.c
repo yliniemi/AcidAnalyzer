@@ -209,7 +209,7 @@ struct RGB HSVToRGB(struct HSV hsv)
 	return rgb;
 }
 
-void calculateWaveData(struct AllChannelData *allChannelData)
+void calculateLocationData(struct AllChannelData *allChannelData)
 {
     int64_t secondBin = nextBin(allChannelData->firstBin, allChannelData->ratio);
     double firstBinLog = log2(sqrt(allChannelData->firstBin * (secondBin - 1)));
@@ -220,14 +220,43 @@ void calculateWaveData(struct AllChannelData *allChannelData)
         int64_t currentBin = allChannelData->firstBin;
         
         struct ChannelData *channelData = allChannelData->channelDataArray[channel];
-        double *log10bands = channelData->log10Bands;
         for (int64_t barIndex = 0; barIndex < global.numBars; barIndex++)
         {
             int64_t nextBinValue = nextBin(currentBin, allChannelData->ratio);
             
             struct Edge *edge = &channelData->edge[barIndex + 1];
-            edge->height = (log10bands[barIndex] + global.dynamicRange) / global.dynamicRange;
             edge->location = (log2(sqrt(currentBin * (nextBinValue - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
+            
+            currentBin = nextBinValue;
+        }
+        struct Edge *edge = &channelData->edge[0];
+        edge->location = -1 * channelData->edge[2].location;
+        
+        edge = &channelData->edge[global.numBars + 1];
+        edge->location = 2 - channelData->edge[global.numBars - 1].location;
+        
+    }
+}
+
+void calculateWaveData(struct AllChannelData *allChannelData)
+{
+    // int64_t secondBin = nextBin(allChannelData->firstBin, allChannelData->ratio);
+    // double firstBinLog = log2(sqrt(allChannelData->firstBin * (secondBin - 1)));
+    // double secondToLastBinLog = log2(sqrt(allChannelData->secondToLastBin * (allChannelData->lastBin - 1)));
+    
+    for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
+    {
+        int64_t currentBin = allChannelData->firstBin;
+        
+        struct ChannelData *channelData = allChannelData->channelDataArray[channel];
+        double *log10bands = channelData->log10Bands;
+        for (int64_t barIndex = 0; barIndex < global.numBars; barIndex++)
+        {
+            // int64_t nextBinValue = nextBin(currentBin, allChannelData->ratio);
+            
+            struct Edge *edge = &channelData->edge[barIndex + 1];
+            edge->height = (log10bands[barIndex] + global.dynamicRange) / global.dynamicRange;
+            // edge->location = (log2(sqrt(currentBin * (nextBinValue - 1))) - firstBinLog) / (secondToLastBinLog - firstBinLog);
             
             if (edge->height < global.minBarHeight) edge->height = global.minBarHeight;
             
@@ -236,11 +265,11 @@ void calculateWaveData(struct AllChannelData *allChannelData)
                     global.colorSaturation,
                     global.colorBrightness});
             
-            currentBin = nextBinValue;
+            // currentBin = nextBinValue;
         }
         struct Edge *edge = &channelData->edge[0];
         edge->height = 0;
-        edge->location = -1 * channelData->edge[2].location;
+        // edge->location = -1 * channelData->edge[2].location;
         edge->color = HSVToRGB(
                     (struct HSV){global.colorStart + edge->location * global.colorRange,
                     global.colorSaturation,
@@ -248,8 +277,7 @@ void calculateWaveData(struct AllChannelData *allChannelData)
         
         edge = &channelData->edge[global.numBars + 1];
         edge->height = 0;
-        edge->location = 2 - channelData->edge[global.numBars - 1].location;
-        // edge->location = 1.3;
+        // edge->location = 2 - channelData->edge[global.numBars - 1].location;
         edge->color = HSVToRGB(
                     (struct HSV){global.colorStart + edge->location * global.colorRange,
                     global.colorSaturation,
@@ -464,6 +492,19 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             else
             {
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }
+        }
+        if (key == GLFW_KEY_P)
+        {
+            if (!glfwGetWindowAttrib(window, GLFW_FOCUSED))
+            {
+                glfwWindowHint(GLFW_MOUSE_PASSTHROUGH, GLFW_TRUE);
+                glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE);
+            }
+            else
+            {
+                glfwWindowHint(GLFW_MOUSE_PASSTHROUGH, GLFW_FALSE);
+                glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
             }
         }
         if (key == GLFW_KEY_F)
@@ -744,11 +785,10 @@ void finalizeFrame()
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
     {
         int width, height;
-        bool windowIsFloating = glfwGetWindowAttrib(window, GLFW_FLOATING);
         glfwGetWindowSize(window, &width, &height);
         glfwDestroyWindow(window);
         preInitializeWindow();
-        if (windowIsFloating)
+        if (glfwGetWindowAttrib(window, GLFW_FLOATING))
         {
             glfwWindowHint(GLFW_FLOATING, GLFW_FALSE);
         }
@@ -763,17 +803,18 @@ void finalizeFrame()
     if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
     {
         int width, height;
-        bool windowIsFloating = glfwGetWindowAttrib(window, GLFW_TRANSPARENT_FRAMEBUFFER);
         glfwGetWindowSize(window, &width, &height);
         glfwDestroyWindow(window);
         preInitializeWindow();
-        if (windowIsFloating)
+        if (glfwGetWindowAttrib(window, GLFW_TRANSPARENT_FRAMEBUFFER))
         {
             glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
+            glfwSetWindowOpacity(window, 1);
         }
         else
         {
             glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+            glfwSetWindowOpacity(window, global.colorOpacity);
         }
         glfwCreateWindow(width, height, "Acid Analyzer", NULL, NULL);
         postInitializeWindow();
