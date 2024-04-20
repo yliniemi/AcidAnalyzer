@@ -176,11 +176,40 @@ void channelAnalysis(struct ChannelData *channelData, struct AllChannelData *all
     // if (channelData->highestBar >= allChannelData->normalizerBar) printf("highestBar = %f\n", channelData->highestBar - allChannelData->normalizerBar);
 }
 
+struct ChannelThreadArguments
+{
+    int64_t channelNumber;
+    struct AllChannelData *allChannelData;
+    struct ChannelData *channelData;
+};
 
-void allocateChannelData(struct ChannelData *channelData, int64_t FFTsize)
+void* channelThread(void* arg)
+{
+    struct ChannelThreadArguments *channelThreadArguments = (struct ChannelThreadArguments*)arg;
+    while (true)
+    {
+        struct AllChannelData *allChannelData = channelThreadArguments->allChannelData;
+        struct ChannelData *channelData = allChannelData->channelDataArray[channelThreadArguments->channelNumber];
+        sem_wait(&channelData->analyzerGo);
+        channelAnalysis(channelData, allChannelData);
+        if (global.wave == true)
+        {
+            calculateWaveData(channelData, allChannelData);
+            // calculateLocationData(channelData, allChannelData);
+            if (global.barMode == WAVE)
+            {
+                calculateWaveVertexData(channelData, allChannelData);
+            }
+        }
+        sem_post(&channelData->glfwGo);
+    }
+}
+
+void allocateChannelData(struct ChannelData *channelData, int64_t channelNumber, int64_t FFTsize, struct AllChannelData *allChannelData)
 {
     // channelData->FFTsize = FFTsize;
     // channelData->windowingArray = &global.windowingArray;
+    channelData->channelNumber = channelNumber;
     channelData->audioData = (double*) malloc(sizeof(double) * FFTsize);
     channelData->windowedAudio = (double*) fftw_malloc(sizeof(double) * FFTsize);
     channelData->complexFFT = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * FFTsize);
@@ -192,6 +221,14 @@ void allocateChannelData(struct ChannelData *channelData, int64_t FFTsize)
     channelData->edge = (struct Edge*) malloc(sizeof(struct Edge) * (FFTsize + 4));
     channelData->vertex = (struct Vertex*) malloc(sizeof(struct Vertex) * (FFTsize + 4));
     channelData->highestBar = -INFINITY;
+    channelData->barMode = global.barMode;
+    sem_init(&channelData->analyzerGo, 0, 0);
+    sem_init(&channelData->glfwGo, 0, 0);
+    struct ChannelThreadArguments *arguments = (struct ChannelThreadArguments*) malloc(sizeof(struct ChannelThreadArguments));
+    arguments->channelNumber = channelData->channelNumber;
+    arguments->allChannelData = allChannelData;
+    arguments->channelData = channelData;
+    pthread_create(&channelData->thread, NULL, channelThread, arguments);
 }
 
 void increaseNumberOfChannels(struct AllChannelData *allChannelData, int64_t newNumberOfChannels)
@@ -210,7 +247,7 @@ void increaseNumberOfChannels(struct AllChannelData *allChannelData, int64_t new
             // printf("failed to initialize one of the buffers\n");
             // refresh();
         }
-        allocateChannelData(allChannelData->channelDataArray[i], global.FFTsize);
+        allocateChannelData(allChannelData->channelDataArray[i], i, global.FFTsize, allChannelData);
         allChannelData->channelDataArray[i]->channelNumber = i;
         // allChannelData->channelDataArray[i]->FFTsize = global.FFTsize;
         // allChannelData->channelDataArray[i]->windowingArray = allChannelData->sharedWindowingArray;
@@ -231,7 +268,6 @@ double findNormalizer(struct AllChannelData *allChannelData)
         if (highestBar > allChannelData->normalizerBar) allChannelData->normalizerBar = highestBar;
     }
 }
-
 
 void* threadFunction(void* arg)
 {
@@ -350,7 +386,15 @@ void* threadFunction(void* arg)
                 lastBin = nextBin(intermediaryBin, allChannelData.ratio);
                 // printf("lastBin = %lld or %lld or %lld\n", FFTdata.lastBin,  lastBin, (int64_t)checkRatio(FFTdata.firstBin, FFTdata.ratio, global.numBars));
                 allChannelData.lastBin = lastBin;
-                calculateLocationData(&allChannelData);
+                
+                // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // might want to calculate this only once since it doesn't change
+                for (int64_t i = 0; i < allChannelData.numberOfChannels; i++)
+                {
+                    struct ChannelData *channelData = allChannelData.channelDataArray[i];
+                    calculateLocationData(channelData, &allChannelData);
+                }
+                //calculateLocationData(&allChannelData);
                 updatedSomething = true;
                 
                 printf("sample rate = %lld, FFT = %lld, ratio = %f, bars = %lld, bins %lld-%lld\n", global.sampleRate, global.FFTsize, allChannelData.ratio, global.numBars, allChannelData.firstBin, allChannelData.lastBin);
@@ -392,18 +436,22 @@ void* threadFunction(void* arg)
             // printw("s");
             frameNumber++;
             
+            glfwSpectrumInit();
             
             for (int64_t channel = 0; channel < allChannelData.numberOfChannels; channel++)
             {
-                
-                channelAnalysis(allChannelData.channelDataArray[channel], &allChannelData);
-                
-                // color_set(1, NULL);
+                sem_post(&allChannelData.channelDataArray[channel]->analyzerGo);
+            }
+            
+            for (int64_t channel = 0; channel < allChannelData.numberOfChannels; channel++)
+            {
+                sem_wait(&allChannelData.channelDataArray[channel]->glfwGo);
             }
             
             if (global.usingGlfw)
             {
-                glfwSpectrum(&allChannelData);
+                // glfwSpectrum(&allChannelData);
+                writeVertexData(&allChannelData);
             }
             
             if (global.usingNcurses)

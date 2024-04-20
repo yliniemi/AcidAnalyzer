@@ -10,6 +10,9 @@
 #include <pthread.h>
 #include <semaphore.h>
 
+#include <defaults.h>
+
+
 struct Vector2D
 {
     double x;
@@ -78,10 +81,13 @@ struct ChannelData
     double *realPower;
     double *bands;
     double *log10Bands;
-    pthread_t thread;
+    enum BarMode barMode;
     struct Edge *edge;
     struct Vertex *vertex;
     double highestBar;
+    pthread_t thread;
+    sem_t analyzerGo;
+    sem_t glfwGo;
 };
 
 struct AllChannelData
@@ -119,6 +125,17 @@ double getRefreshRate();
 
 double nextBin(double currentBin, double ratio);
 
-void calculateLocationData(struct AllChannelData *allChannelData);
+void calculateLocationData(struct ChannelData *channelData, struct AllChannelData *allChannelData);
+
+// void calculateLocationData(struct AllChannelData *allChannelData);
+void calculateWaveData(struct ChannelData *channelData, struct AllChannelData *allChannelData);
+
+void calculateWaveVertexData(struct ChannelData *channelData, struct AllChannelData *allChannelData);
+
+void glfwSpectrumInit();
+
+void writeVertexData(struct AllChannelData *allChannelData);
+
+
 
 

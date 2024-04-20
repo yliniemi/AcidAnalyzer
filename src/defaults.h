@@ -25,6 +25,14 @@
 
 #define ABSOLUTE_MAXIMUM_CHANNELS 1024
 
+enum BarMode
+{
+    BAR,
+    CIRCLE,
+    WAVE,
+    NEWWAVE
+};
+
 struct Global
 {
     struct RingBuffer allBuffer;
@@ -51,13 +59,6 @@ struct Global
     int64_t minBufferDepth;
     int64_t maxBufferDept;
     double barWidth;
-    enum
-    {
-        BAR,
-        CIRCLE,
-        WAVE,
-        NEWWAVE
-    } barMode;
     double colorRange;
     double colorSpeed;
     double colorSaturation;
@@ -69,6 +70,7 @@ struct Global
     double minBarHeight;
     bool smoothenAnimation;
     double decreaseCeilingBelsPerSecond;
+    enum BarMode barMode;
 };
 
 extern struct Global global;
@@ -99,7 +101,7 @@ void setGobalDefaults()
     global.minBufferDepth = 1000000000;
     global.maxBufferDept = 0;
     global.barWidth = 0.8;
-    global.barMode = NEWWAVE;
+    global.barMode = WAVE;
     global.colorRange = 0.15;
     global.colorSpeed = 0.03;
     global.colorSaturation = 1.0;

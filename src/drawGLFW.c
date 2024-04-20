@@ -209,17 +209,17 @@ struct RGB HSVToRGB(struct HSV hsv)
 	return rgb;
 }
 
-void calculateLocationData(struct AllChannelData *allChannelData)
+void calculateLocationData(struct ChannelData *channelData, struct AllChannelData *allChannelData)
 {
     int64_t secondBin = nextBin(allChannelData->firstBin, allChannelData->ratio);
     double firstBinLog = log2(sqrt(allChannelData->firstBin * (secondBin - 1)));
     double secondToLastBinLog = log2(sqrt(allChannelData->secondToLastBin * (allChannelData->lastBin - 1)));
     
-    for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
+    // for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
     {
         int64_t currentBin = allChannelData->firstBin;
         
-        struct ChannelData *channelData = allChannelData->channelDataArray[channel];
+        // struct ChannelData *channelData = allChannelData->channelDataArray[channel];
         for (int64_t barIndex = 0; barIndex < global.numBars; barIndex++)
         {
             int64_t nextBinValue = nextBin(currentBin, allChannelData->ratio);
@@ -238,17 +238,17 @@ void calculateLocationData(struct AllChannelData *allChannelData)
     }
 }
 
-void calculateWaveData(struct AllChannelData *allChannelData)
+void calculateWaveData(struct ChannelData *channelData, struct AllChannelData *allChannelData)
 {
     // int64_t secondBin = nextBin(allChannelData->firstBin, allChannelData->ratio);
     // double firstBinLog = log2(sqrt(allChannelData->firstBin * (secondBin - 1)));
     // double secondToLastBinLog = log2(sqrt(allChannelData->secondToLastBin * (allChannelData->lastBin - 1)));
     
-    for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
+    // for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
     {
         int64_t currentBin = allChannelData->firstBin;
         
-        struct ChannelData *channelData = allChannelData->channelDataArray[channel];
+        // struct ChannelData *channelData = allChannelData->channelDataArray[channel];
         double *log10bands = channelData->log10Bands;
         for (int64_t barIndex = 0; barIndex < global.numBars; barIndex++)
         {
@@ -312,8 +312,27 @@ void waveDataToLineVertexData(struct ChannelData *channelData, struct Vector2D s
     }
 }
 
-// void glfwSpectrum(double *soundArray, int64_t numBars, double barWidth, int64_t numChannels, int64_t channel, bool upright, bool isCircle)
-void glfwSpectrum(struct AllChannelData *allChannelData)
+void calculateWaveVertexData(struct ChannelData *channelData, struct AllChannelData *allChannelData)
+{
+    int64_t channel = channelData->channelNumber;
+    struct Vector2D barDirection, centralDirection;
+    if (channel == 0)
+    {
+        centralDirection = substract2d(centralLine.end, centralLine.start);
+        barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * -0.5;
+        barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * 0.5;
+        waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
+    }
+    else if (channel == 1)
+    {
+        centralDirection = substract2d(centralLine.end, centralLine.start);
+        barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * 0.5;
+        barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * -0.5;
+        waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
+    }
+}
+
+void glfwSpectrumInit()
 {
     double biggestNoiseScale = 0.05;
     double smallestTimeScale = 0.00000000008;
@@ -326,9 +345,12 @@ void glfwSpectrum(struct AllChannelData *allChannelData)
     int64_t delta_time = new_time - old_time;
     if (old_time == 0) delta_time = 0;
     old_time = new_time;
-    
     global.colorStart += global.colorSpeed * delta_time / (double)1000000000;
-    
+}
+
+/*
+void wsdtrgyuhi()
+{
     if (global.wave == true)
     {
         calculateWaveData(allChannelData);
@@ -375,37 +397,32 @@ void glfwSpectrum(struct AllChannelData *allChannelData)
                 }
                 
             }
-            else if (global.barMode == NEWWAVE)
-            {
-                struct Vector2D barDirection, centralDirection;
-                if (channel == 0)
-                {
-                    centralDirection = substract2d(centralLine.end, centralLine.start);
-                    barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * -0.5;
-                    barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * 0.5;
-                    waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
-                }
-                else if (channel == 1)
-                {
-                    centralDirection = substract2d(centralLine.end, centralLine.start);
-                    barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * 0.5;
-                    barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * -0.5;
-                    waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
-                }
-                
-            }
         }
     }
+}
+*/
+
+void drawWave(struct ChannelData *channelData)
+{
+    glVertexPointer(2, GL_FLOAT, sizeof(struct Vertex), (GLvoid*)channelData->vertex);
+    glColorPointer(3, GL_FLOAT, sizeof(struct Vertex), (GLvoid*)channelData->vertex + 3 * sizeof(GL_FLOAT));
     
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 2 * (global.numBars + 2));
+    // printf(",\n");
+}
+
+void writeVertexData(struct AllChannelData *allChannelData)
+{
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     
     for (int64_t channel = 0; channel < allChannelData->numberOfChannels; channel++)
     {
-        glVertexPointer(2, GL_FLOAT, sizeof(struct Vertex), (GLvoid*)allChannelData->channelDataArray[channel]->vertex);
-        glColorPointer(3, GL_FLOAT, sizeof(struct Vertex), (GLvoid*)allChannelData->channelDataArray[channel]->vertex + 3 * sizeof(GL_FLOAT));
-        
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 2 * (global.numBars + 2));
+        struct ChannelData *channelData = allChannelData->channelDataArray[channel];
+        if (channelData->barMode == WAVE)
+        {
+            drawWave(channelData);
+        }
     }
     
 }
@@ -826,6 +843,7 @@ void finalizeFrame()
         frameCount = 0;
         lastTime = currentTime;
         global.fps = getRefreshRate();
+        printf("getRefreshRate() = %f\n", global.fps);
         update_window_title(window);
     }
     
