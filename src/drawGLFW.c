@@ -316,19 +316,35 @@ void calculateWaveVertexData(struct ChannelData *channelData, struct AllChannelD
 {
     int64_t channel = channelData->channelNumber;
     struct Vector2D barDirection, centralDirection;
-    if (channel == 0)
+    
+    if (global.simulateNumberOfChannels != 0)
     {
-        centralDirection = substract2d(centralLine.end, centralLine.start);
-        barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * -0.5;
-        barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * 0.5;
-        waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
+        struct Line2D currentLine;
+        currentLine.start.x = (int64_t)(channel / 2) * 2.0 / (int64_t)((allChannelData->numberOfChannels + 1) / 2 * 2);
+        currentLine.start.y = 0.5;
+        currentLine.end.x = currentLine.start.x;
+        currentLine.end.y = (channel + 1) % 2;
+        // centralDirection = substract2d(centralLine.end, centralLine.start);
+        barDirection.x = 2.0 / ((int64_t)((allChannelData->numberOfChannels + 1) / 2 * 2));
+        barDirection.y = 0;
+        waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(currentLine.start, offset), add2d(currentLine.end, offset), barDirection);
     }
-    else if (channel == 1)
+    else
     {
-        centralDirection = substract2d(centralLine.end, centralLine.start);
-        barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * 0.5;
-        barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * -0.5;
-        waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
+    if (channel == 0)
+        {
+            centralDirection = substract2d(centralLine.end, centralLine.start);
+            barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * -0.5;
+            barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * 0.5;
+            waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
+        }
+        else if (channel == 1)
+        {
+            centralDirection = substract2d(centralLine.end, centralLine.start);
+            barDirection.x = centralDirection.y * xRatio / yRatio * sizeRatio * 0.5;
+            barDirection.y = centralDirection.x * yRatio / xRatio * sizeRatio * -0.5;
+            waveDataToLineVertexData(allChannelData->channelDataArray[channel], add2d(centralLine.start, offset), add2d(centralLine.end, offset), barDirection);
+        }
     }
 }
 
@@ -656,6 +672,7 @@ void postInitializeWindow()
 {
     glfwMakeContextCurrent(window);
     gladLoadGL(glfwGetProcAddress);
+    // set_swap_interval(window, 1);
     set_swap_interval(window, 1);
     // glEnable(GL_MULTISAMPLE);
     

@@ -245,6 +245,30 @@ void parseArguments(int64_t argc, char *argv[])
             global.minBarHeight = strtod(argv[i + 1], NULL);
             printf("minBarHeight = %f\n", global.minBarHeight);
         }
+        if (strcmp(argv[i], "--decreaseCeilingBelsPerSecond") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.decreaseCeilingBelsPerSecond = strtod(argv[i + 1], NULL);
+            printf("decreaseCeilingBelsPerSecond = %f\n", global.decreaseCeilingBelsPerSecond);
+        }
+        if (strcmp(argv[i], "--simulateNumberOfChannels") == 0)
+        {
+            replaceChar(argv[i + 1], ',', '.');
+            global.simulateNumberOfChannels = strtol(argv[i + 1], NULL, 10);
+            printf("simulateNumberOfChannels = %lld\n", global.simulateNumberOfChannels);
+        }
+        if (strcmp(argv[i], "--forceCoreAffinity") == 0)
+        {
+            if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "false") == 0)
+            {
+                global.forceCoreAffinity = false;
+            }
+            else
+            {
+                global.forceCoreAffinity = true;
+            }
+            printf("forceCoreAffinity = %s\n", global.forceCoreAffinity ? "true" : "false");
+        }
     }
 }
 

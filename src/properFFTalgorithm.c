@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
+#define _GNU_SOURCE
 #include <properFFTalgorithm.h>
 #include <nanoTime.h>
 #include <ringBuffer.h>
@@ -31,13 +31,15 @@
 // #include <pthread.h>
 // #include <semaphore.h>
 #include <string.h>
+#include <sched.h>
+#include <unistd.h>
 
 extern struct Global global;
 
 // extern struct FFTData FFTdata;
 // struct FFTData FFTdata;
 
-pthread_t readAudioBuffer;
+pthread_t readAudioBuffer, stupidThread[4];
 
 double substract_universal[6]  =
 { 4.432, 4.668, 4.754, 4.783, 4.789, 4.790 };   // this is here until I make changing KAISER_BETA dynamic. These are the values for KAISER_BETA = 5.0
@@ -164,7 +166,14 @@ double logBands(double *bands, double *logBands, int64_t n_bands, int64_t starti
 
 void channelAnalysis(struct ChannelData *channelData, struct AllChannelData *allChannelData)
 {
-    readChunkFromBuffer(&global.allBuffer, (uint8_t*)channelData->audioData, channelData->channelNumber);
+    if (global.simulateNumberOfChannels != 0)
+    {
+        readChunkFromBuffer(&global.allBuffer, (uint8_t*)channelData->audioData, channelData->channelNumber % global.channels);
+    }
+    else
+    {
+        readChunkFromBuffer(&global.allBuffer, (uint8_t*)channelData->audioData, channelData->channelNumber);
+    }
     multiplyArrays(channelData->audioData, allChannelData->windowingArray, channelData->windowedAudio, allChannelData->FFTsize);  // windowing
     fftw_execute(channelData->plan);
     multiplyArrays((double*)channelData->complexFFT, (double*)channelData->complexFFT, (double*)channelData->complexPower, allChannelData->FFTsize);  // these two steps turn co complex numbers
@@ -191,6 +200,7 @@ void* channelThread(void* arg)
         struct AllChannelData *allChannelData = channelThreadArguments->allChannelData;
         struct ChannelData *channelData = allChannelData->channelDataArray[channelThreadArguments->channelNumber];
         sem_wait(&channelData->analyzerGo);
+        
         channelAnalysis(channelData, allChannelData);
         if (global.wave == true)
         {
@@ -201,6 +211,7 @@ void* channelThread(void* arg)
                 calculateWaveVertexData(channelData, allChannelData);
             }
         }
+        
         sem_post(&channelData->glfwGo);
     }
 }
@@ -228,7 +239,33 @@ void allocateChannelData(struct ChannelData *channelData, int64_t channelNumber,
     arguments->channelNumber = channelData->channelNumber;
     arguments->allChannelData = allChannelData;
     arguments->channelData = channelData;
-    pthread_create(&channelData->thread, NULL, channelThread, arguments);
+    
+    if (global.forceCoreAffinity)
+    {
+        int64_t num_cores = sysconf(_SC_NPROCESSORS_CONF);
+        printf("threads = %lld, channel = %lld\n", num_cores, channelData->channelNumber);
+        pthread_attr_t attr;
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset); // Initialize CPU set to 0
+        if (num_cores == 2)
+        {
+            // I'm not assuming hyperthreading
+            CPU_SET(channelData->channelNumber % num_cores, &cpuset); // Set core 0
+        }
+        else
+        {
+            // I'm assuming hyperthreading
+            CPU_SET((channelData->channelNumber * 2 + 0) % num_cores, &cpuset); // Set physical core 0
+            CPU_SET((channelData->channelNumber * 2 + 1) % num_cores, &cpuset); // Set physical core 1
+        }
+        pthread_attr_init(&attr);
+        pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+        pthread_create(&channelData->thread, &attr, channelThread, arguments);
+    }
+    else
+    {
+        pthread_create(&channelData->thread, NULL, channelThread, arguments);
+    }
 }
 
 void increaseNumberOfChannels(struct AllChannelData *allChannelData, int64_t newNumberOfChannels)
@@ -254,7 +291,7 @@ void increaseNumberOfChannels(struct AllChannelData *allChannelData, int64_t new
     }
     
     allChannelData->maxNumberOfChannelsEver = newNumberOfChannels;
-    // allChannelData->numberOfChannels = newNumberOfChannels;
+    allChannelData->numberOfChannels = newNumberOfChannels;
     free(oldChannelDataArray);
 }
 
@@ -266,6 +303,15 @@ double findNormalizer(struct AllChannelData *allChannelData)
         printf("asdfghjkl\n");
         double highestBar = allChannelData->channelDataArray[channel]->highestBar;
         if (highestBar > allChannelData->normalizerBar) allChannelData->normalizerBar = highestBar;
+    }
+}
+
+void* stupidThreadFunction(void* arg)
+{
+    volatile int64_t dummy = 0;
+    while (true)
+    {
+        dummy++;
     }
 }
 
@@ -299,6 +345,11 @@ void* threadFunction(void* arg)
     allChannelData.FFTsize = global.FFTsize;
     allChannelData.normalizerBar = -INFINITY;
     
+    if (global.simulateNumberOfChannels != 0)
+    {
+        increaseNumberOfChannels(&allChannelData, global.simulateNumberOfChannels);
+    }
+        
     if (global.usingNcurses)
     {
         printw("initialized FFT thread\n");
@@ -314,6 +365,13 @@ void* threadFunction(void* arg)
         initializeGlfw();
     }
     // if (global.usingNcurses) initializeNcurses();
+    
+    /*
+    pthread_create(&stupidThread[0], NULL, stupidThreadFunction, NULL);
+    pthread_create(&stupidThread[1], NULL, stupidThreadFunction, NULL);
+    pthread_create(&stupidThread[2], NULL, stupidThreadFunction, NULL);
+    pthread_create(&stupidThread[3], NULL, stupidThreadFunction, NULL);
+    */
     
     while(true)
     {
@@ -332,8 +390,10 @@ void* threadFunction(void* arg)
         }
         // findNormalizer(&allChannelData);
         
-        
-        allChannelData.numberOfChannels = global.channels;
+        if (global.simulateNumberOfChannels == 0)
+        {
+            allChannelData.numberOfChannels = global.channels;
+        }
         if (allChannelData.numberOfChannels > allChannelData.maxNumberOfChannelsEver)
         {
             increaseNumberOfChannels(&allChannelData, allChannelData.numberOfChannels);

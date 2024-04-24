@@ -25,6 +25,11 @@
 
 #define ABSOLUTE_MAXIMUM_CHANNELS 1024
 
+// #define NUM_TEST_CHANNELS 200
+// #define TEST_A_MASSIVE_NUMBER_OF_CHANNELS
+// #define FORCE_CORE_AFFINITY
+
+
 enum BarMode
 {
     BAR,
@@ -71,6 +76,8 @@ struct Global
     bool smoothenAnimation;
     double decreaseCeilingBelsPerSecond;
     enum BarMode barMode;
+    int64_t simulateNumberOfChannels;
+    bool forceCoreAffinity;
 };
 
 extern struct Global global;
@@ -113,6 +120,8 @@ void setGobalDefaults()
     global.minBarHeight = 0.0;
     global.smoothenAnimation = true;
     global.decreaseCeilingBelsPerSecond = 0.01;   // 10 seconds for spectrum to rise by 1 desiBels
+    global.simulateNumberOfChannels = 0;
+    global.forceCoreAffinity = false;
     
     int64_t defaultColors[2][3] = {{0, 0, 1000}, {300, 300, 1000}};
     for (int64_t i = 0; i < 2; i++)
