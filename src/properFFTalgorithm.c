@@ -164,6 +164,25 @@ double logBands(double *bands, double *logBands, int64_t n_bands, int64_t starti
   return newHighestBar;
 }
 
+double newSamplesPowerSum(struct ChannelData *channelData, int64_t startingSample, int64_t endingSample)
+{
+    double powerSum = 0;
+    for (int64_t i = startingSample; i < endingSample; i++)
+    {
+        double sample = channelData->audioData[i];
+        powerSum += sample * sample;
+        if (sample < channelData->minSample)
+        {
+            channelData->minSample = sample;
+        }
+        if (sample > channelData->maxSample)
+        {
+            channelData->maxSample = sample;
+        }
+    }
+    return powerSum;
+}
+
 void channelAnalysis(struct ChannelData *channelData, struct AllChannelData *allChannelData)
 {
     if (global.simulateNumberOfChannels != 0)
@@ -174,6 +193,11 @@ void channelAnalysis(struct ChannelData *channelData, struct AllChannelData *all
     {
         readChunkFromBuffer(&global.allBuffer, (uint8_t*)channelData->audioData, channelData->channelNumber);
     }
+    
+    int64_t numberOfSamplesToSum = min(global.readSamples, allChannelData->FFTsize);
+    channelData->powerSumNumberOfSamples += numberOfSamplesToSum;
+    channelData->powerSum += newSamplesPowerSum(channelData, allChannelData->FFTsize - numberOfSamplesToSum, allChannelData->FFTsize);
+    
     multiplyArrays(channelData->audioData, allChannelData->windowingArray, channelData->windowedAudio, allChannelData->FFTsize);  // windowing
     fftw_execute(channelData->plan);
     multiplyArrays((double*)channelData->complexFFT, (double*)channelData->complexFFT, (double*)channelData->complexPower, allChannelData->FFTsize);  // these two steps turn co complex numbers
@@ -233,6 +257,10 @@ void allocateChannelData(struct ChannelData *channelData, int64_t channelNumber,
     channelData->vertex = (struct Vertex*) malloc(sizeof(struct Vertex) * (FFTsize + 4));
     channelData->highestBar = -INFINITY;
     channelData->barMode = global.barMode;
+    channelData->powerSum = 0;
+    channelData->powerSumNumberOfSamples = 0;
+    channelData->minSample = INFINITY;
+    channelData->maxSample = -INFINITY;
     sem_init(&channelData->analyzerGo, 0, 0);
     sem_init(&channelData->glfwGo, 0, 0);
     struct ChannelThreadArguments *arguments = (struct ChannelThreadArguments*) malloc(sizeof(struct ChannelThreadArguments));
@@ -494,6 +522,7 @@ void* threadFunction(void* arg)
             if (bufferDepth < global.minBufferDepth) global.minBufferDepth = bufferDepth;
             if (bufferDepth > global.maxBufferDept) global.maxBufferDept = bufferDepth;
             // printw("s");
+            global.readSamples = readSamples;
             frameNumber++;
             
             glfwSpectrumInit();
@@ -547,6 +576,20 @@ void* threadFunction(void* arg)
                 else
                 {
                     printf("fps = %.2f, capturedSamples = %lld, readSamples = %lld-%lld, bufferDepth = %lld-%lld, normalizer = %f\n", actualFPS, global.mostCapturedSamples, global.leastReadSamples, global.mostReadSamples, global.minBufferDepth, global.maxBufferDept, allChannelData.normalizerBar);
+                    for (int64_t channel = 0; channel < global.channels; channel++)
+                    {
+                        struct ChannelData *channelData = allChannelData.channelDataArray[channel];
+                        double peakToPeak = channelData->maxSample - channelData->minSample;
+                        double maxPower = (peakToPeak / 2) * (peakToPeak / 2) * channelData->powerSumNumberOfSamples;
+                        double crestFactor = sqrt(maxPower / channelData->powerSum);
+                        // printf("channel %lld Crest Factor = %f, peak to peak = %f, maxPower = %f, powerSum = %f, samples = %lld\n", channel, crestFactor, peakToPeak, maxPower, channelData->powerSum, channelData->powerSumNumberOfSamples);
+                        printf("channel %lld Crest Factor = %f\n", channel, crestFactor);
+                        
+                        channelData->powerSumNumberOfSamples = 0;
+                        channelData->powerSum = 0;
+                        channelData->minSample = INFINITY;
+                        channelData->maxSample = -INFINITY;
+                    }
                 }
                 printDebug_ns = new_debug_ns;
                 frameNumber = 0;

@@ -78,6 +78,7 @@ struct Global
     enum BarMode barMode;
     int64_t simulateNumberOfChannels;
     bool forceCoreAffinity;
+    int64_t readSamples;
 };
 
 extern struct Global global;
@@ -89,7 +90,7 @@ struct Global global;
 void setGobalDefaults()
 {
     global.sampleRate = 1;
-    global.channels = 1;
+    global.channels = 0;
     global.fps = 120;
     global.FFTsize = 8192;
     // global.threadsPerChannel = 1;
@@ -103,6 +104,7 @@ void setGobalDefaults()
     global.numBars = 256;
     global.dummyNoise = false;
     global.mostCapturedSamples = 0;
+    global.readSamples = 0;
     global.leastReadSamples = 1000000000;
     global.mostReadSamples = 0;
     global.minBufferDepth = 1000000000;

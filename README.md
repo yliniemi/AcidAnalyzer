@@ -18,7 +18,7 @@ I'll make a Windows version at some point. I find porting and compiling to Windo
 ```console
 sudo apt install libfftw3-bin ncurses-bin libglfw3
 git clone https://github.com/yliniemi/AcidAnalyzer
-AcidAnalyzer/AcidAnalyzer/build/AcidAnalyzer
+AcidAnalyzer/build/AcidAnalyzer
 ```
 
 
@@ -37,7 +37,7 @@ sudo apt install cmake pkg-config libpipewire-0.3-dev libfftw3-dev libncurses-de
 git clone https://github.com/yliniemi/AcidAnalyzer
 git clone https://github.com/glfw/glfw
 git clone https://github.com/KdotJPG/OpenSimplex2
-cd AcidAnalyzer/AcidAnalyzer/build/
+cd AcidAnalyzer/build/
 cmake ..
 make
 ./AcidAnalyzer
@@ -71,5 +71,7 @@ UP and DOWN change the size of the whole circle
 
 LEFT and RIGHT change the size of the inner circle (you can make the circle inverted if you grow the inner circle bigger than the outer one)
 
+### Mouse
 
+You can move the screen around using the left mouse button. The right mouse button makes the spectrum start where you click it and end where you release the button. Try it.
 

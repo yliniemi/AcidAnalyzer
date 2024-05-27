@@ -88,6 +88,10 @@ struct ChannelData
     pthread_t thread;
     sem_t analyzerGo;
     sem_t glfwGo;
+    double powerSum;
+    int64_t powerSumNumberOfSamples;
+    double minSample;
+    double maxSample;
 };
 
 struct AllChannelData
